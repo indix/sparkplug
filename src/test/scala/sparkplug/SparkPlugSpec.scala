@@ -6,13 +6,14 @@ import org.scalatest._
 
 class SparkPlugSpec extends FlatSpec with Matchers {
   "SparkPlug" should "return input df as is" in {
-    val spark = SparkSession.builder
+    implicit val spark: SparkSession = SparkSession.builder
       .config(new SparkConf())
       .enableHiveSupport()
       .master("local[*]")
       .getOrCreate()
 
     val df = spark.emptyDataFrame
-    new SparkPlug().plug(df) should be (df)
+    val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
+    sparkPlug.plug(df) should be (df)
   }
 }
