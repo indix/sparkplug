@@ -1,9 +1,13 @@
 package sparkplug
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import sparkplug.udfs.CustomUDFs
 
 case class SparkPlug(isPlugDetailsEnabled: Boolean)(implicit val spark : SparkSession) {
   def plug(in: DataFrame) = {
+    if(isPlugDetailsEnabled) {
+      CustomUDFs.registerUDFs(spark.sqlContext)
+    }
     in
   }
 }
