@@ -3,7 +3,7 @@ package sparkplug.udfs
 import org.apache.spark.sql.SQLContext
 import sparkplug.models.PlugDetail
 
-object CustomUDFs {
+object SparkPlugUDFs {
   def addPlugDetail(input: Seq[PlugDetail], ruleName: String, fieldNames: Seq[String]) = {
     input :+ PlugDetail(ruleName, fieldNames)
   }
