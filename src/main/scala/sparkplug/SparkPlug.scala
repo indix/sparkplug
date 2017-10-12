@@ -2,7 +2,7 @@ package sparkplug
 
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import sparkplug.models.PlugDetail
+import sparkplug.models.{PlugDetail, PlugRule}
 import sparkplug.udfs.SparkPlugUDFs
 
 case class SparkPlug(isPlugDetailsEnabled: Boolean)(implicit val spark : SparkSession) {
@@ -13,9 +13,9 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean)(implicit val spark : SparkSe
   }
 
   private def preprocessInput(in: DataFrame) = {
-    if (isPlugDetailsEnabled && !in.schema.fields.exists(_.name == "plugDetails")) {
+    if (isPlugDetailsEnabled && !in.schema.fields.exists(_.name == PlugRule.plugDetailsColumn)) {
       val emptyOverrideDetails = udf(() => Seq[PlugDetail]())
-      in.withColumn("plugDetails", emptyOverrideDetails())
+      in.withColumn(PlugRule.plugDetailsColumn, emptyOverrideDetails())
     } else {
       in
     }
