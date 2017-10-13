@@ -4,7 +4,7 @@ import org.apache.spark.sql.SQLContext
 import sparkplug.models.PlugDetail
 
 object SparkPlugUDFs {
-  def addPlugDetail(input: Seq[PlugDetail], ruleName: String, fieldNames: Seq[String]) = {
+  private def addPlugDetail(input: Seq[PlugDetail], ruleName: String, fieldNames: Seq[String]) = {
     input :+ PlugDetail(ruleName, fieldNames)
   }
   def registerUDFs(sqlContext: SQLContext) = {

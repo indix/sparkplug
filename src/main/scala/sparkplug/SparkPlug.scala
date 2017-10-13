@@ -6,13 +6,26 @@ import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
 import sparkplug.udfs.SparkPlugUDFs
 
 case class SparkPlug(isPlugDetailsEnabled: Boolean, isValidateRulesEnabled: Boolean)(implicit val spark : SparkSession) {
+
+  private val tableName = "__plug_table__"
+
   def plug(in: DataFrame, rules: List[PlugRule]): Either[List[PlugRuleValidationError], DataFrame] = {
     val validationResult = validateRules(in, rules)
     if(validationResult.nonEmpty) {
       Left(validationResult)
     } else {
       registerUdf(spark)
-      Right(preProcessInput(in))
+      val rulesBroadcast = spark.sparkContext.broadcast(rules)
+      val preProcessedInput = preProcessInput(in)
+
+      val pluggedDf = rulesBroadcast.value.foldLeft(preProcessedInput) {
+        case (frame: DataFrame, rule: PlugRule) =>
+          val output = applySql(frame, s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled)} from $tableName")
+
+          rule.withColumnsRenamed(output)
+      }
+
+      Right(pluggedDf)
     }
   }
 
@@ -36,6 +49,11 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean, isValidateRulesEnabled: Bool
     if(isPlugDetailsEnabled) {
       SparkPlugUDFs.registerUDFs(spark.sqlContext)
     }
+  }
+
+  private def applySql(in: DataFrame, sql: String): DataFrame = {
+    in.createOrReplaceTempView(tableName)
+    in.sqlContext.sql(sql)
   }
 
 }
