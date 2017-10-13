@@ -23,29 +23,6 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
 
   lazy val fieldNames = actions.map(x => s""""${x.key}"""").mkString("array(", ",", ")")
 
-  def oldKey(actionKey: String) = s"${actionKey}_${name}_old"
-  def newKey(actionKey: String) = s"${actionKey}_new"
-
-  def convertedActions(schema: StructType) = {
-    val fields = buildFieldsMap(schema).toMap
-    actions
-      .map(x => x.copy(
-        convertedValue = convertActionValueTo(x.value, fields(x.key)).toOption
-      ))
-  }
-
-  def convertActionValueTo(actionValue: String, dataType: DataType) = {
-    if (actionValue.contains('`')) {
-      Success(actionValue.replace("`", ""))
-    } else {
-      Try(dataType match {
-        case IntegerType => actionValue.toInt
-        case DoubleType  => s"cast(${actionValue.toDouble} as double)"
-        case StringType  => s""""${actionValue.toString}""""
-      })
-    }
-  }
-
   def validate(schema: StructType): List[PlugRuleValidationError] = {
     val fields = buildFieldsMap(schema).toMap
 
@@ -59,25 +36,6 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
           None
       }
     }).toList
-  }
-
-  def updateField(schema: StructType, builder: mutable.StringBuilder, actionKey: String, actionValue: Any) = {
-    actionKey match {
-      case x if x.contains('.') =>
-        val Array(parent, child) = x.split('.')
-        val parentSchema = schema.filter((field: StructField) => field.name == parent).head.dataType.asInstanceOf[StructType]
-        builder.append(s"if($parent is null, null, named_struct(")
-        val namedStruct = parentSchema.fields.map((field: StructField) => {
-          if (field.name == child)
-            s"'${field.name}', if($condition, $actionValue, $actionKey)"
-          else
-            s"'${field.name}',$parent.${field.name}"
-        }).mkString(",")
-        builder.append(namedStruct)
-        builder.append(s")) as ${newKey(parent)},")
-      case _ =>
-        builder.append(s"if($condition, $actionValue, $actionKey) as ${newKey(actionKey)}")
-    }
   }
 
   def asSql(schema: StructType, addPlugDetails: Boolean = false) = {
@@ -113,6 +71,45 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
     row.getAs[Seq[GenericRowWithSchema]](PlugRule.plugDetailsColumn).exists(_.getAs[String]("ruleId") == name)
   }
 
+  private def updateField(schema: StructType, builder: mutable.StringBuilder, actionKey: String, actionValue: Any) = {
+    actionKey match {
+      case x if x.contains('.') =>
+        val Array(parent, child) = x.split('.')
+        val parentSchema = schema.filter((field: StructField) => field.name == parent).head.dataType.asInstanceOf[StructType]
+        builder.append(s"if($parent is null, null, named_struct(")
+        val namedStruct = parentSchema.fields.map((field: StructField) => {
+          if (field.name == child)
+            s"'${field.name}', if($condition, $actionValue, $actionKey)"
+          else
+            s"'${field.name}',$parent.${field.name}"
+        }).mkString(",")
+        builder.append(namedStruct)
+        builder.append(s")) as ${newKey(parent)},")
+      case _ =>
+        builder.append(s"if($condition, $actionValue, $actionKey) as ${newKey(actionKey)}")
+    }
+  }
+
+  private def convertedActions(schema: StructType) = {
+    val fields = buildFieldsMap(schema).toMap
+    actions
+      .map(x => x.copy(
+        convertedValue = convertActionValueTo(x.value, fields(x.key)).toOption
+      ))
+  }
+
+  private def convertActionValueTo(actionValue: String, dataType: DataType) = {
+    if (actionValue.contains('`')) {
+      Success(actionValue.replace("`", ""))
+    } else {
+      Try(dataType match {
+        case IntegerType => actionValue.toInt
+        case DoubleType  => s"cast(${actionValue.toDouble} as double)"
+        case StringType  => s""""${actionValue.toString}""""
+      })
+    }
+  }
+
   private def validationError(message: String) = PlugRuleValidationError(name, message)
 
   private def buildFieldsMap(schema: StructType, prefix: String = ""): Seq[(String, DataType)] = {
@@ -122,4 +119,8 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
       case f => Seq((s"$prefix${f.name}", f.dataType))
     }
   }
+
+  private def oldKey(actionKey: String) = s"${actionKey}_${name}_old"
+
+  private def newKey(actionKey: String) = s"${actionKey}_new"
 }
