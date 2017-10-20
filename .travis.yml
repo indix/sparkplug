@@ -1,0 +1,17 @@
+language: scala
+scala:
+- 2.10.6
+- 2.11.11
+jdk:
+- oraclejdk8
+sudo: false
+before_cache:
+  - find $HOME/.sbt -name "*.lock" | xargs rm
+  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
+env:
+  global:
+  - BUILD_LABEL=1.0.${TRAVIS_BUILD_NUMBER}
