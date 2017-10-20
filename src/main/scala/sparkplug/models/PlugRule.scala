@@ -11,10 +11,11 @@ import scala.util.{Success, Try}
 case class PlugRuleValidationError(name: String, error: String)
 
 case class PlugAction(key: String,
-                      value: String,
-                      convertedValue: Option[Any] = None) {
+                      value: String) {
   val updateKey = key.split('.').head
 }
+
+case class PlugActionConverted(key: String, value: Any)
 
 object PlugRule {
   val plugDetailsColumn = "plugDetails"
@@ -70,7 +71,7 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
     val builder = new StringBuilder
     convertedActions(schema).foldLeft(builder)((builder, action) => {
       val actionKey = action.key
-      val actionValue = action.convertedValue.getOrElse(action.value)
+      val actionValue = action.value
       notEqualsBuilder.append(s"not($actionKey <=> $actionValue)")
       updateField(schema, builder, actionKey, actionValue)
     })
@@ -138,10 +139,7 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
     actions
       .map(
         x =>
-          x.copy(
-            convertedValue =
-              convertActionValueTo(x.value, fields(x.key)).toOption
-        ))
+          PlugActionConverted(x.key, convertActionValueTo(x.value, fields(x.key)).getOrElse(null)))
   }
 
   private def convertActionValueTo(actionValue: String, dataType: DataType) = {
