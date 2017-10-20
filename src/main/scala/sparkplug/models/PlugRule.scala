@@ -26,23 +26,43 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
   lazy val fieldNames =
     actions.map(x => s""""${x.key}"""").mkString("array(", ",", ")")
 
-  def validate(schema: StructType): List[PlugRuleValidationError] = {
-    val fields = buildFieldsMap(schema).toMap
+  private val defaultValidation
+    : ((Seq[PlugAction], StructType)) => List[PlugRuleValidationError] = _ =>
+    List.empty
 
-    actions
-      .flatMap((action: PlugAction) => {
-        fields.get(action.key) match {
-          case None =>
-            Some(
-              validationError(s"Field ${action.key} not found in the schema."))
-          case Some(x) if convertActionValueTo(action.value, x).isFailure =>
-            Some(validationError(
-              s"""Value "${action.value}" cannot be assigned to field ${action.key}."""))
-          case _ =>
-            None
-        }
-      })
-      .toList
+  private val actionsNotEmpty
+    : PartialFunction[(Seq[PlugAction], StructType),
+                      List[PlugRuleValidationError]] = {
+    case (as, _) if as.isEmpty =>
+      List(
+        validationError("At the least one action must be specified per rule."))
+  }
+
+  private val actionFieldsPresentInSchema
+    : PartialFunction[(Seq[PlugAction], StructType),
+                      List[PlugRuleValidationError]] = {
+    case (as, schema) =>
+      val fields = buildFieldsMap(schema).toMap
+
+      as.flatMap((action: PlugAction) => {
+          fields.get(action.key) match {
+            case None =>
+              Some(
+                validationError(
+                  s"""Field "${action.key}" not found in the schema."""))
+            case Some(x) if convertActionValueTo(action.value, x).isFailure =>
+              Some(validationError(
+                s"""Value "${action.value}" cannot be assigned to field ${action.key}."""))
+            case _ =>
+              None
+          }
+        })
+        .toList
+  }
+
+  def validate(schema: StructType): List[PlugRuleValidationError] = {
+    List(actionsNotEmpty, actionFieldsPresentInSchema).flatMap(
+      _.applyOrElse((actions, schema), defaultValidation))
   }
 
   def asSql(schema: StructType, addPlugDetails: Boolean = false) = {
@@ -145,7 +165,7 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
       case f if f.dataType.isInstanceOf[StructType] =>
         (s"$prefix${f.name}", f.dataType) +: buildFieldsMap(
           f.dataType.asInstanceOf[StructType],
-          s"${f.name}.")
+          s"$prefix${f.name}.")
       case f => Seq((s"$prefix${f.name}", f.dataType))
     }
   }

@@ -59,8 +59,9 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     )
     sparkPlug.plug(df, invalidRules).left.get should be(
       List(
-        PlugRuleValidationError("rule1",
-                                "Field randomField not found in the schema."),
+        PlugRuleValidationError(
+          "rule1",
+          "Field \"randomField\" not found in the schema."),
         PlugRuleValidationError(
           "rule2",
           "Value \"too high\" cannot be assigned to field price.")
@@ -112,7 +113,9 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val output =
       sparkPlug.plug(df, rules).right.get.as[TestRowWithStruct].collect()
     output.length should be(3)
-    output.map(_.title) should contain inOrderElementsOf List("Apple iPhone", "Samsung Galaxy", "Nokia Lumia")
+    output.map(_.title) should contain inOrderElementsOf List("Apple iPhone",
+                                                              "Samsung Galaxy",
+                                                              "Nokia Lumia")
   }
 
   it should "apply rules to struct fields" in {
