@@ -41,6 +41,14 @@ class PlugRuleSpec extends FlatSpec with Matchers {
           StructField("first", StringType)
         )))))))))
     errors3.length should be (0)
+
+    val rule4 = PlugRule("rule3", "condition", Seq(PlugAction("title", "`null`")))
+    val errors4 = rule4.validate(StructType(List(
+      StructField("title", StructType(List(
+        StructField("main", StructType(List(
+          StructField("first", IntegerType)
+        )))))))))
+    errors4.length should be (0)
   }
 
   it should "error if incompatible value set" in {
@@ -65,5 +73,15 @@ class PlugRuleSpec extends FlatSpec with Matchers {
         )))))))))
     errors3.length should be (1)
     errors3.head.error should be ("Value \"title 1\" cannot be assigned to field title.main.first.")
+
+    val rule4 = PlugRule("rule3", "condition", Seq(PlugAction("title", "title 1")))
+
+    val errors4 = rule4.validate(StructType(List(
+      StructField("title", StructType(List(
+        StructField("main", StructType(List(
+          StructField("first", IntegerType)
+        )))))))))
+    errors4.length should be (1)
+    errors4.head.error should be ("Value \"title 1\" cannot be assigned to field title.")
   }
 }
