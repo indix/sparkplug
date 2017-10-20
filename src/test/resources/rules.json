@@ -1,0 +1,2 @@
+{"name": "rule1", "condition": "title like '%iPhone%'", "actions": [{ "key": "title", "value": "Apple iPhone"}]}
+{"name": "rule2", "condition": "title like '%Galaxy%'", "actions": [{ "key": "title", "value": "Samsung Galaxy"}]}
