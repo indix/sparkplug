@@ -90,6 +90,31 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     output(1).price should be(700)
   }
 
+  it should "be able to set derived values" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRowWithStruct("iPhone",
+                          "Apple",
+                          Some(TestPriceDetails(100.0, 150.0))),
+        TestRowWithStruct("Galaxy",
+                          "Samsung",
+                          Some(TestPriceDetails(10.0, 15.0, "not available"))),
+        TestRowWithStruct("Lumia", "Nokia", None)
+      ))
+    val sparkPlug = SparkPlug.builder.create()
+    val rules = List(
+      PlugRule("rule1",
+               "true",
+               Seq(PlugAction("title", "`concat(brand, ' ', title)`")))
+    )
+
+    import spark.implicits._
+    val output =
+      sparkPlug.plug(df, rules).right.get.as[TestRowWithStruct].collect()
+    output.length should be(3)
+    output.map(_.title) should contain inOrderElementsOf List("Apple iPhone", "Samsung Galaxy", "Nokia Lumia")
+  }
+
   it should "apply rules to struct fields" in {
     val df = spark.createDataFrame(
       List(
