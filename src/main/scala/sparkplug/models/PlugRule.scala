@@ -84,7 +84,7 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
             s"'${field.name}',$parent.${field.name}"
         }).mkString(",")
         builder.append(namedStruct)
-        builder.append(s")) as ${newKey(parent)},")
+        builder.append(s")) as ${newKey(parent)}")
       case _ =>
         builder.append(s"if($condition, $actionValue, $actionKey) as ${newKey(actionKey)}")
     }

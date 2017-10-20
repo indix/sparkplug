@@ -7,6 +7,8 @@ import sparkplug.models.{PlugAction, PlugDetail, PlugRule, PlugRuleValidationErr
 
 case class TestRow(title: String, brand: String, price: Int)
 case class TestRowWithPlugDetails(title: String, brand: String, price: Int, plugDetails: Seq[PlugDetail] = Seq())
+case class TestPriceDetails(minPrice: Double, maxPrice: Double, availability: String = "available")
+case class TestRowWithStruct(title: String, brand: String, price: TestPriceDetails)
 
 class SparkPlugSpec extends FlatSpec with Matchers {
   implicit val spark: SparkSession = SparkSession.builder
@@ -60,6 +62,24 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     output.length should be (2)
     output(0).price should be(1000)
     output(1).price should be(700)
+  }
+
+  it should "apply rules to struct fields" in {
+    val df = spark.createDataFrame(List(
+      TestRowWithStruct("iPhone", "Apple", TestPriceDetails(100.0, 150.0)),
+      TestRowWithStruct("Galaxy", "Samsung", TestPriceDetails(10.0, 15.0, "not available"))
+    ))
+    val sparkPlug = SparkPlug.builder.create()
+    val rules = List(
+      PlugRule("rule1", "title like '%iPhone%'", Seq(PlugAction("price.minPrice", "1000.0"))),
+      PlugRule("rule2", "title like '%Galaxy%'", Seq(PlugAction("price.availability", "available")))
+    )
+
+    import spark.implicits._
+    val output = sparkPlug.plug(df, rules).right.get.as[TestRowWithStruct].collect()
+    output.length should be (2)
+    output(0).price.minPrice should be(1000.0)
+    output(1).price.availability should be("available")
   }
 
   it should "apply rules with plug details" in {
