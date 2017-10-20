@@ -1,9 +1,12 @@
 package sparkplug
 
 import org.apache.spark.sql.functions.udf
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
 import sparkplug.udfs.SparkPlugUDFs
+
+import scala.util.Try
 
 case class SparkPlug(
     isPlugDetailsEnabled: Boolean,
@@ -22,10 +25,8 @@ case class SparkPlug(
       val preProcessedInput = preProcessInput(in)
 
       val pluggedDf = rulesBroadcast.value.foldLeft(preProcessedInput) {
-        case (frame: DataFrame, rule: PlugRule) =>
-          val output = applySql(
-            frame,
-            s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled)} from $tableName")
+        case (df: DataFrame, rule: PlugRule) =>
+          val output = applyRule(df, rule)
 
           rule.withColumnsRenamed(output)
       }
@@ -35,10 +36,25 @@ case class SparkPlug(
   }
 
   private def validateRules(in: DataFrame, rules: List[PlugRule]) = {
-    if (isValidateRulesEnabled)
-      rules.flatMap(_.validate(in.schema))
-    else
+    if (isValidateRulesEnabled) {
+      Option(rules.flatMap(_.validate(in.schema)))
+        .filter(_.nonEmpty)
+        .getOrElse(rules.flatMap(r => validateRuleSql(in.schema, r)))
+    } else
       List.empty
+  }
+
+  private def validateRuleSql(schema: StructType, rule: PlugRule) = {
+    Try(applyRule(emptyDf(schema), rule)).failed
+      .map { t =>
+        List(
+          PlugRuleValidationError(rule.name, s"[SQL Error] ${t.getMessage}"))
+      }
+      .getOrElse(List())
+  }
+
+  private def emptyDf(schema: StructType) = {
+    spark.createDataFrame(spark.sparkContext.emptyRDD[Row], schema)
   }
 
   private def preProcessInput(in: DataFrame) = {
@@ -55,6 +71,12 @@ case class SparkPlug(
     if (isPlugDetailsEnabled) {
       SparkPlugUDFs.registerUDFs(spark.sqlContext)
     }
+  }
+
+  private def applyRule(frame: DataFrame, rule: PlugRule) = {
+    applySql(
+      frame,
+      s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled)} from $tableName")
   }
 
   private def applySql(in: DataFrame, sql: String): DataFrame = {

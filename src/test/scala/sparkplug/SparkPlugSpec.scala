@@ -91,6 +91,21 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     output(1).price should be(700)
   }
 
+  it should "be able to validate derived values" in {
+    val df = spark.createDataFrame(List.empty[TestRow])
+    val sparkPlug = SparkPlug.builder.enableRulesValidation.create()
+    val rules = List(
+      PlugRule("rule1",
+               "true",
+               Seq(PlugAction("title", "`conc(brand, ' ', title)`")))
+    )
+
+    val errors = sparkPlug.plug(df, rules).left.get
+    errors.length should be(1)
+    errors.head.error should startWith(
+      "[SQL Error] Undefined function: 'conc'")
+  }
+
   it should "be able to set derived values" in {
     val df = spark.createDataFrame(
       List(

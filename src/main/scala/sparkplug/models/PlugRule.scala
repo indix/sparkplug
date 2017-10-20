@@ -8,10 +8,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Success, Try}
 
-case class PlugRuleValidationError(name: String, error: String)
-
-case class PlugAction(key: String,
-                      value: String) {
+case class PlugAction(key: String, value: String) {
   val updateKey = key.split('.').head
 }
 
@@ -139,7 +136,9 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
     actions
       .map(
         x =>
-          PlugActionConverted(x.key, convertActionValueTo(x.value, fields(x.key)).getOrElse(null)))
+          PlugActionConverted(
+            x.key,
+            convertActionValueTo(x.value, fields(x.key)).getOrElse(null)))
   }
 
   private def convertActionValueTo(actionValue: String, dataType: DataType) = {
