@@ -120,7 +120,7 @@ Currently SparkPlug supports only one level within structs.
 
 ### SQL in values
 
-Values can be literal values like "iPhone", "100" or "999.9" etc. SparkPlug also allow SQL within values so that overrides can use the power of SQL and most importantly depend of values of other fields. Values enclosed within ``` are treated as SQL:
+Values can be literal values like "iPhone", "100" or "999.9" etc. SparkPlug also allow SQL within values so that overrides can use the power of SQL and most importantly depend of values of other fields. Values enclosed within `` ` `` (backtick) are treated as SQL:
 
 
 ```json
