@@ -80,3 +80,16 @@ The SparkPlug object can also be created with validation enabled so that rules a
 ```scala
 val sparkPlug = SparkPlug.builder.enableRulesValidation.create()
 ```
+
+### Plug details
+
+To track what changes are being made (or not) to each record, it is possible to add `PlugDetails` to every record with information on which rules were applied to it. This is disabled by default and can be enables as follows:
+
+```scala
+val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
+```
+This adds a `plugDetails` column of type `Seq[PlugDetail]` to the DataFrame. `PlugDetail` is a simple case class as defined below:
+
+```scala
+case class PlugDetail(name: String, fieldNames: Seq[String])
+```
