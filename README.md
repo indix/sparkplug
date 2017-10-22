@@ -36,3 +36,20 @@ An example rule is given below in json:
 }
 ```
 Each rule identifies itself with a `name`. The SQL predicate in `condition` is used to identify the applicable rows in the data. On the selected rows, the `actions` - specified via the column name in `key` and its overridden `value` - are applied to plug the data.
+
+Rules can be fed into Sparkplug as a normal jsonlines dataset that Spark can work with.
+
+Sparkplug comes with an helper to deserialize json rules into a collection of `PlugRule` objects, which is shown below:
+
+```scala
+#example of creating a Spark session
+implicit val spark: SparkSession = SparkSession.builder
+    .config(new SparkConf())
+    .enableHiveSupport()
+    .master("local[*]")
+    .getOrCreate()
+    
+val rules = spark.readPlugRulesFrom(path)
+```
+
+The `rules` can now be fend into SparkPlug
