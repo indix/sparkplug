@@ -51,7 +51,7 @@ implicit val spark: SparkSession = SparkSession.builder
     
 val rules = spark.readPlugRulesFrom(path)
 ```
-The `rules` can now be fend into SparkPlug.
+The `rules` can now be fed into SparkPlug.
 
 ### Creating SparkPlug instance
 
