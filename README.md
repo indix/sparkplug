@@ -35,7 +35,7 @@ An example rule is given below in json:
   ]
 }
 ```
-Each rule identifies itself with a `name`. The SQL predicate in `condition` is used to identify the applicable rows in the data. On the selected rows, the `actions` - specified via the column name in `key` and its overridden `value` - are applied to plug the data.
+Each rule identifies itself with a `name`. The SQL predicate in `condition` is used to identify the applicable rows in the data. On the selected rows, the `actions` - specified via the column name in `key` and its overridden `value` - are applied to plug the data. The value is currently always specified as a string, and is internally validated and convereted to the appropriate type.
 
 Rules can be fed into Sparkplug as a normal jsonlines dataset that Spark can work with.
 
@@ -93,3 +93,29 @@ This adds a `plugDetails` column of type `Seq[PlugDetail]` to the DataFrame. `Pl
 ```scala
 case class PlugDetail(name: String, fieldNames: Seq[String])
 ```
+
+### Working with structs
+
+It is possible to override values within a `StructType`. 
+
+
+```json
+{
+  "name": "rule1",
+  "condition": "title like '%iPhone%'",
+  "actions": [
+    {
+      "key": "price.min",
+      "value": "100.0"
+    },
+    {
+      "key": "price.max",
+      "value": "1000.0"
+    }
+  ]
+}
+```
+
+Currently SparkPlug supports only one level within structs.
+
+
