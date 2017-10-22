@@ -16,7 +16,7 @@ case class SparkPlug(
 
   def plug(in: DataFrame, rules: List[PlugRule])
     : Either[List[PlugRuleValidationError], DataFrame] = {
-    val validationResult = validateRules(in, rules)
+    val validationResult = validate(in.schema, rules)
     if (validationResult.nonEmpty) {
       Left(validationResult)
     } else {
@@ -35,11 +35,11 @@ case class SparkPlug(
     }
   }
 
-  private def validateRules(in: DataFrame, rules: List[PlugRule]) = {
+  def validate(schema: StructType, rules: List[PlugRule]) = {
     if (isValidateRulesEnabled) {
-      Option(rules.flatMap(_.validate(in.schema)))
+      Option(rules.flatMap(_.validate(schema)))
         .filter(_.nonEmpty)
-        .getOrElse(rules.flatMap(r => validateRuleSql(in.schema, r)))
+        .getOrElse(rules.flatMap(r => validateRuleSql(schema, r)))
     } else
       List.empty
   }
