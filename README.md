@@ -1,5 +1,7 @@
 # ![Sparkplug](./logo/logo.png)
-Spark package to "plug" holes in data using SQL based rules.
+Spark package to "plug" holes in data using SQL based rules. 
+
+[![Build Status](https://travis-ci.org/indix/sparkplug.svg?branch=master)](https://travis-ci.org/indix/sparkplug)
 
 ## Motivation
 
