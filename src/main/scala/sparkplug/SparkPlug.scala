@@ -2,7 +2,7 @@ package sparkplug
 
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
 import sparkplug.udfs.SparkPlugUDFs
 
@@ -16,9 +16,12 @@ case class SparkPlug(
 
   def plug(in: DataFrame, rules: List[PlugRule])
     : Either[List[PlugRuleValidationError], DataFrame] = {
-    val validationResult = validate(in.schema, rules)
+    val validationResult = Option(isValidateRulesEnabled)
+      .filter(identity)
+      .map(_ => validate(in.schema, rules))
+      .filter(_.nonEmpty)
     if (validationResult.nonEmpty) {
-      Left(validationResult)
+      Left(validationResult.get)
     } else {
       registerUdf(spark)
       val rulesBroadcast = spark.sparkContext.broadcast(rules)
@@ -36,12 +39,9 @@ case class SparkPlug(
   }
 
   def validate(schema: StructType, rules: List[PlugRule]) = {
-    if (isValidateRulesEnabled) {
-      Option(rules.flatMap(_.validate(schema)))
-        .filter(_.nonEmpty)
-        .getOrElse(rules.flatMap(r => validateRuleSql(schema, r)))
-    } else
-      List.empty
+    Option(rules.flatMap(_.validate(schema)))
+      .filter(_.nonEmpty)
+      .getOrElse(rules.flatMap(r => validateRuleSql(schema, r)))
   }
 
   private def validateRuleSql(schema: StructType, rule: PlugRule) = {
