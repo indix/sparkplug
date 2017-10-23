@@ -19,7 +19,10 @@ object PlugRule {
   val plugDetailsColumnUpdated = s"${plugDetailsColumn}_updated"
 }
 
-case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
+case class PlugRule(name: String,
+                    version: String,
+                    condition: String,
+                    actions: Seq[PlugAction]) {
 
   lazy val fieldNames =
     actions.map(x => s""""${x.key}"""").mkString("array(", ",", ")")
@@ -76,7 +79,7 @@ case class PlugRule(name: String, condition: String, actions: Seq[PlugAction]) {
     if (addPlugDetails) {
       val notEqualCondition = s"(${notEqualsBuilder.mkString(" or ")})"
       builder.append(
-        s""", if($condition and $notEqualCondition, addPlugDetail(${PlugRule.plugDetailsColumn}, "$name", $fieldNames), ${PlugRule.plugDetailsColumn}) as ${PlugRule.plugDetailsColumnUpdated}""")
+        s""", if($condition and $notEqualCondition, addPlugDetail(${PlugRule.plugDetailsColumn}, "$name", "$version", $fieldNames), ${PlugRule.plugDetailsColumn}) as ${PlugRule.plugDetailsColumnUpdated}""")
     }
 
     builder.mkString

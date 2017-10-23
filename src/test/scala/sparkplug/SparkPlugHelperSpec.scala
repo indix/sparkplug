@@ -20,10 +20,12 @@ class SparkPlugHelperSpec extends FlatSpec with Matchers {
     rules.length should be(2)
     rules(0) should be(
       PlugRule("rule1",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("title", "Apple iPhone"))))
     rules(1) should be(
       PlugRule("rule2",
+               "version1",
                "title like '%Galaxy%'",
                Seq(PlugAction("title", "Samsung Galaxy"))))
   }

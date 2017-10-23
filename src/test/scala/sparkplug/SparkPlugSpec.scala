@@ -51,9 +51,11 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.enableRulesValidation.create()
     val invalidRules = List(
       PlugRule("rule1",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("randomField", "1"))),
       PlugRule("rule2",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("price", "too high")))
     )
@@ -77,9 +79,11 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.create()
     val rules = List(
       PlugRule("rule1",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("price", "1000"))),
       PlugRule("rule2",
+               "version1",
                "title like '%Galaxy%'",
                Seq(PlugAction("price", "700")))
     )
@@ -96,6 +100,7 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.enableRulesValidation.create()
     val rules = List(
       PlugRule("rule1",
+               "version1",
                "true",
                Seq(PlugAction("title", "`conc(brand, ' ', title)`")))
     )
@@ -120,6 +125,7 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.create()
     val rules = List(
       PlugRule("rule1",
+               "version1",
                "true",
                Seq(PlugAction("title", "`concat(brand, ' ', title)`")))
     )
@@ -147,12 +153,15 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.create()
     val rules = List(
       PlugRule("rule1",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("price.minPrice", "1000.0"))),
       PlugRule("rule2",
+               "version1",
                "title like '%Galaxy%'",
                Seq(PlugAction("price.availability", "available"))),
       PlugRule("rule3",
+               "version1",
                "title like '%Lumia%'",
                Seq(PlugAction("price.availability", "available")))
     )
@@ -175,9 +184,11 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
     val rules = List(
       PlugRule("rule1",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("price", "1000"))),
       PlugRule("rule2",
+               "version1",
                "title like '%Galaxy%'",
                Seq(PlugAction("price", "700")))
     )
@@ -187,10 +198,12 @@ class SparkPlugSpec extends FlatSpec with Matchers {
       sparkPlug.plug(df, rules).right.get.as[TestRowWithPlugDetails].collect()
     output.length should be(2)
     output(0).price should be(1000)
-    output(0).plugDetails should be(Seq(PlugDetail("rule1", Seq("price"))))
+    output(0).plugDetails should be(
+      Seq(PlugDetail("rule1", "version1", Seq("price"))))
 
     output(1).price should be(700)
-    output(1).plugDetails should be(Seq(PlugDetail("rule2", Seq("price"))))
+    output(1).plugDetails should be(
+      Seq(PlugDetail("rule2", "version1", Seq("price"))))
   }
 
   it should "apply rules with plug details even if not in input" in {
@@ -202,9 +215,11 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
     val rules = List(
       PlugRule("rule1",
+               "version1",
                "title like '%iPhone%'",
                Seq(PlugAction("price", "1000"))),
       PlugRule("rule2",
+               "version1",
                "title like '%Galaxy%'",
                Seq(PlugAction("price", "700")))
     )
@@ -214,9 +229,11 @@ class SparkPlugSpec extends FlatSpec with Matchers {
       sparkPlug.plug(df, rules).right.get.as[TestRowWithPlugDetails].collect()
     output.length should be(2)
     output(0).price should be(1000)
-    output(0).plugDetails should be(Seq(PlugDetail("rule1", Seq("price"))))
+    output(0).plugDetails should be(
+      Seq(PlugDetail("rule1", "version1", Seq("price"))))
 
     output(1).price should be(700)
-    output(1).plugDetails should be(Seq(PlugDetail("rule2", Seq("price"))))
+    output(1).plugDetails should be(
+      Seq(PlugDetail("rule2", "version1", Seq("price"))))
   }
 }

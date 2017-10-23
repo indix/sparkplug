@@ -1,3 +1,3 @@
 package sparkplug.models
 
-case class PlugDetail(name: String, fieldNames: Seq[String])
+case class PlugDetail(name: String, version: String, fieldNames: Seq[String])
