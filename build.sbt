@@ -50,7 +50,8 @@ lazy val root = (project in file(".")).settings(
       organization := "com.indix",
       scalaVersion := "2.11.11",
       crossScalaVersions := Seq("2.10.6", "2.11.11"),
-      version := libVersion
+      version := libVersion,
+      scalafmtOnCompile := true
     )),
   name := "sparkplug",
   libraryDependencies ++= Seq(sparkCore, sparkSql, sparkHive, scalaTest)
