@@ -2,7 +2,7 @@ package sparkplug
 
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
 import sparkplug.udfs.SparkPlugUDFs
 
@@ -39,9 +39,19 @@ case class SparkPlug(
   }
 
   def validate(schema: StructType, rules: List[PlugRule]) = {
-    Option(rules.flatMap(_.validate(schema)))
-      .filter(_.nonEmpty)
-      .getOrElse(rules.flatMap(r => validateRuleSql(schema, r)))
+    rules
+      .groupBy(_.name)
+      .filter(_._2.size > 1)
+      .keysIterator
+      .map(
+        r =>
+          PlugRuleValidationError(
+            r,
+            "Only one version per rule should be applied."))
+      .toList ++
+      Option(rules.flatMap(_.validate(schema)))
+        .filter(_.nonEmpty)
+        .getOrElse(rules.flatMap(r => validateRuleSql(schema, r)))
   }
 
   private def validateRuleSql(schema: StructType, rule: PlugRule) = {

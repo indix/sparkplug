@@ -70,6 +70,37 @@ class SparkPlugSpec extends FlatSpec with Matchers {
       ))
   }
 
+  it should "validate only one version of rule applied" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRow("iPhone", "Apple", 300),
+        TestRow("Galaxy", "Samsung", 200)
+      ))
+    val sparkPlug = SparkPlug.builder.enableRulesValidation.create()
+    val invalidRules = List(
+      PlugRule("rule1",
+               "version1",
+               "title like '%iPhone%'",
+               Seq(PlugAction("randomField", "1"))),
+      PlugRule("rule1",
+               "version2",
+               "title like '%iPhone%'",
+               Seq(PlugAction("price", "too high")))
+    )
+    sparkPlug.plug(df, invalidRules).left.get should be(
+      List(
+        PlugRuleValidationError(
+          "rule1",
+          "Only one version per rule should be applied."),
+        PlugRuleValidationError(
+          "rule1",
+          "Field \"randomField\" not found in the schema."),
+        PlugRuleValidationError(
+          "rule1",
+          "Value \"too high\" cannot be assigned to field price.")
+      ))
+  }
+
   it should "apply rules" in {
     val df = spark.createDataFrame(
       List(
