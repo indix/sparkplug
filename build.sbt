@@ -44,15 +44,17 @@ lazy val publishSettings = Seq(
       </developers>
 )
 
-lazy val sparkplug = (project in file(".")).settings(
-  inThisBuild(
-    List(
-      organization := "com.indix",
-      scalaVersion := "2.11.11",
-      crossScalaVersions := Seq("2.10.6", "2.11.11"),
-      version := libVersion,
-      scalafmtOnCompile := true
-    )),
-  name := "sparkplug",
-  libraryDependencies ++= Seq(sparkCore, sparkSql, sparkHive, scalaTest)
-)
+lazy val sparkplug = (project in file("."))
+  .settings(
+    inThisBuild(
+      List(
+        organization := "com.indix",
+        scalaVersion := "2.11.11",
+        crossScalaVersions := Seq("2.10.6", "2.11.11"),
+        version := libVersion,
+        scalafmtOnCompile := true
+      )),
+    name := "sparkplug",
+    libraryDependencies ++= Seq(sparkCore, sparkSql, sparkHive, scalaTest)
+  )
+  .settings(publishSettings: _*)
