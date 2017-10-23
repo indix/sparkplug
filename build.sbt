@@ -44,7 +44,7 @@ lazy val publishSettings = Seq(
       </developers>
 )
 
-lazy val root = (project in file(".")).settings(
+lazy val sparkplug = (project in file(".")).settings(
   inThisBuild(
     List(
       organization := "com.indix",
