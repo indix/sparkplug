@@ -6,12 +6,27 @@ jdk:
 - oraclejdk8
 sudo: false
 before_cache:
-  - find $HOME/.sbt -name "*.lock" | xargs rm
-  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+- find $HOME/.sbt -name "*.lock" | xargs rm
+- find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 cache:
   directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/
+  - "$HOME/.ivy2/cache"
+  - "$HOME/.sbt/boot/"
+before_deploy:
+- openssl aes-256-cbc -pass pass:$ENCRYPTION_PASSWORD -in secring.gpg.enc -out local.secring.gpg -d
+- openssl aes-256-cbc -pass pass:$ENCRYPTION_PASSWORD -in pubring.gpg.enc -out local.pubring.gpg -d
+deploy:
+- provider: script
+  script: "./publish.sh"
+  skip_cleanup: true
+  on:
+    tags: true
+    jdk: oraclejdk8
+    scala: 2.11.11
 env:
   global:
   - BUILD_LABEL=1.0.${TRAVIS_BUILD_NUMBER}
+  - secure: bY0j/t//Hlb47VMRufK1qwYP6KxInraq4HcY0/qgkdjC2KrK8yzYOnol5ZykPQu0jTFvHqInUEeWxZZi29vb0tdXUCci+iRbl1M/iMt8Ub0P40TYueUUBYA1VdIp6YfkWDpQPltj7bPmjTpafQ3f/p6U1y9nrmE81ydjTQLICIacLUtjDvjPttMjoI/Md0r6rHAZr48IyfiERhVmO5MU9c+xOzmzAGVX1AHWZd5y45J/ceLI2LN+3JLFxYN0WonvZBpfeBxHfeAWCaX0f/cBqLJCcwO59sRszy9tb86Sx+p6wbYSeZ8qMN/BLlyDAYc720rjV5JyVkuGMKEi8Nxskw117OHpzAo8hhPbbc3CKY527XZea5vrb6/u4qmsDjD9cv6MWbe2vgUa/8v7HMbuFKN82SxfR6VYxddGuf5Ezw1X+OFy4I7PeR8fCbNlLvYjM+YfnEPnMcZLG0JZHk1j3Bt9XqXC/hLs6WpEN6PPNdzEN07nS6f2IOcHxLtx30w6/Pko8KCe3wYblUJ8Yxk3pd397jKJbTwS/mvciY2vQqzHHrrYtlfYOBHfRkxW+eFViDnuEuQcBT5AuM+pHrT0VIzTKECarrVj5srSmSDRdvq6JSpWMparz4UMHrFImvkG2ecB4JEMtNkGw0QnSovT/OZ6xvVy2yxa2A1t/1HxX/k=
+  - secure: E77qwP1QRnANJPiyiR/16VCzRxinqHUP6On86W3aue3G5udRNyyTED3bkOu28LKDKPh6UFIpn0ZPmWgNZKZfSWci/iZ7xWVObYgcwM59R1Tx1dMHUeWARJYEydBsXbJiGmZ0YOovLqhrREjabqccE9Me+5FZYvExBrvz3fMI5CShHoEDmpejMtURkweaPWE2tpG8gGNtpA9SheaMFtDhAV4CWZ4/OzEwnS8PzRFxkD/S215MZ5s48wkJOJrMZyMTiCSGdsy/oUzI3p0qgU4CJmjYHMG+YYyJqRglsZd3MQcdBysGtqh3l43vIjPs8Dg1R1XRxFtRU/bmghFzI0LRid5rabzqE9RDD7xZZl7LeGlJH7i7y5wCb2Zh3vdppBMs7liseKXwA6lTDWJFCGSXoGeU10tepM9cTCNTI9fe6yL2l9vNPD3vthyygX8ATte6kzlRjbUcYy7g2lyl67VhaRGlc6RzSfrIVgoHfazbstPS7PkGZPPYeFgto7snCpYbXlwIOHvQtM2/Ykdb7SIJaV462f4mAtI9+Yc0mFB3EX6QdgZb7DvnVpbpW3fsgUXlV7zrF5Jyjq3yHX5zZoof9IOjH7LeVhp9sHCczYRA2EnaX9L5JVHn/RCrpsmxRJjXUphS3P36O/pu8b/4ynN35IiqAg2QSVr1KKA/sxpF8Ws=
+  - secure: L0ULHGLYnbsiQBLMkRFAbJMBJ0qPZUHwaN69vOG4bUUs+Z7A5V73Vui4HcKVsYG+Aqk0dqwr11mEzuGRgowBUD7Md2vFkRalTga9XmGKtLopBcc5dL5zyKYbk9+UWdfitVAmj10+3qzRBo6k6i54z3BFDllO5sflAje+wOfDiC4Syx1sU5pnfsINu9Fbxj2zti6CidLl0xZFX2gisgTcOqUpjoNT5th1OkarZWh5bNHugYLs0k4e4Ex9rGXnKx144oW/RnGbVGJOa394HPa9KdeC2ErsHLK21y1n1D+IBKi8/Ifi344SxKKvdm8t0KLFE0sVX+TDFY4matD0cZ5iPm/O4Wd0vQVXwaBEF6uwUIzZ0jbutBivIKj1CEEy6xlHdk0JX43TpDwrlp2sxwZLmPSCTUJjXX/191ZFIVPl6LOAoZTfnmLSUYUc8tuf9ydY69hJIHqDFqzgdsfjwdYaL3Vcrfoje9yUGm9XS1vZ1Tv3slI2soDQJzbXPH0ByIkWDNs4YZCJRZOTfnTTx6ftXoV6hbD5ErPp0UhC7VkNr9OgueIMY9SrMfLNAGr8M49+Buu1rnHPEXs+Lj/XdJ5Fk0spseRH24nq7piE5WDyt429XWc/u/TONGWsCubWMyWxQgAoHddyZgLm/L1O92+T44QYpvZQk11J/ZHHn5eDJQ0=
+  - secure: IsSN964kfEiNtyMGI3pDQzpoedkrvL7Hn9CUZ3RQ19jJ3sYXKTcmdY3w8gyEYUSYD+tg62vm7eugA2FreM78HOQlHbOPcWJ3cYo1jR/P70++20CSv/X/aOE/zrORjpWrtoZlwc+NaqA8DQAIYkKeCEpZaLWuYQvufGZq6QaRr4XepBjEcG80HoE0/VSOeHbbXcfXyCUGSlMoT9uaxKA0ksw/pEWUy6TcjYUXsfg8aJhLyx6FgqzlEczvsrIptinC4SocArbnJ6blhV4eLqaNiT+tEZX8Yj5FkZWqu5p6CXrWG/YOTCLPTs7DClxYF3dNtRN5K0akb/1vDv07k6FjFjhZ9HhbPxuoJUefVM4N5BVx7kRbGIEpGLL93F62EG4uXFHPa0LH5COkMLOAZSPeKypCur4jhkOUbjzI8+xgOtn/wjg5xHuuTnIaNX2ox/tMSG2oD/rLPTOT8+cBTrHc102xmUpmVMegLT2pMbLmnsp4Fnve0QJTYliQ0N9FZFeU3nOmLIcAF/rDi+v8vDVWXxzbRclZAlnKXDbTdPRDzcuPFy8CqS7Xfc0U60YQe7hKgjx+fNhgIuSacOaoz5K/VeYpSIyXpYE5Lf3gAbyiqSD1NvIHPZX4Y43x+7sopry62z1LUj/oiz8PROIp+UmbyrHCIwSnDAX5m7l3NbztVNI=
