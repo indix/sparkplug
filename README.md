@@ -1,7 +1,7 @@
 # ![Sparkplug](./logo/logo.svg)
 Spark package to "plug" holes in data using SQL based rules. 
 
-[![Build Status](https://travis-ci.org/indix/sparkplug.svg?branch=master)](https://travis-ci.org/indix/sparkplug)
+[![Build Status](https://travis-ci.org/indix/sparkplug.svg?branch=master)](https://travis-ci.org/indix/sparkplug) [![Maven](https://maven-badges.herokuapp.com/maven-central/com.indix/sparkplug_2.11/badge.svg)](http://repo1.maven.org/maven2/com/indix/sparkplug_2.11/)
 
 ## Motivation
 
