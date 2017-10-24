@@ -1,6 +1,5 @@
 package sparkplug.models
 
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Dataset, Row}
 
@@ -13,11 +12,6 @@ case class PlugAction(key: String, value: String) {
 }
 
 case class PlugActionConverted(key: String, value: Any)
-
-object PlugRule {
-  val plugDetailsColumn = "plugDetails"
-  val plugDetailsColumnUpdated = s"${plugDetailsColumn}_updated"
-}
 
 case class PlugRule(name: String,
                     version: String,
@@ -66,7 +60,9 @@ case class PlugRule(name: String,
       _.applyOrElse((actions, schema), defaultValidation))
   }
 
-  def asSql(schema: StructType, addPlugDetails: Boolean = false) = {
+  def asSql(schema: StructType,
+            addPlugDetails: Boolean,
+            plugDetailsColumn: String) = {
     val notEqualsBuilder = new ListBuffer[String]
     val builder = new StringBuilder
     convertedActions(schema).foldLeft(builder)((builder, action) => {
@@ -79,14 +75,17 @@ case class PlugRule(name: String,
     if (addPlugDetails) {
       val notEqualCondition = s"(${notEqualsBuilder.mkString(" or ")})"
       builder.append(
-        s""", if($condition and $notEqualCondition, addPlugDetail(${PlugRule.plugDetailsColumn}, "$name", "$version", $fieldNames), ${PlugRule.plugDetailsColumn}) as ${PlugRule.plugDetailsColumnUpdated}""")
+        s""", if($condition and $notEqualCondition, addPlugDetail($plugDetailsColumn, "$name", "$version", $fieldNames), $plugDetailsColumn) as ${updatedPlugDetailsColumn(
+          plugDetailsColumn)}""")
     }
 
     builder.mkString
   }
 
-  def withColumnsRenamed(dataset: Dataset[Row]) = {
-    actions
+  def withColumnsRenamed(dataset: Dataset[Row],
+                         addPlugDetails: Boolean,
+                         plugDetailsColumn: String) = {
+    val pluggedDf = actions
       .foldLeft(dataset)((overridden, action) => {
         val modified = overridden
           .withColumnRenamed(action.updateKey, oldKey(action.updateKey))
@@ -94,16 +93,17 @@ case class PlugRule(name: String,
 
         modified.drop(oldKey(action.key))
       })
-      .drop(PlugRule.plugDetailsColumn)
-      .withColumnRenamed(PlugRule.plugDetailsColumnUpdated,
-                         PlugRule.plugDetailsColumn)
+
+    Option(addPlugDetails).filter(identity).fold(pluggedDf) { _ =>
+      pluggedDf
+        .drop(plugDetailsColumn)
+        .withColumnRenamed(updatedPlugDetailsColumn(plugDetailsColumn),
+                           plugDetailsColumn)
+    }
   }
 
-  def isRuleAppliedOn(row: Row) = {
-    row
-      .getAs[Seq[GenericRowWithSchema]](PlugRule.plugDetailsColumn)
-      .exists(_.getAs[String]("ruleId") == name)
-  }
+  private def updatedPlugDetailsColumn(plugDetailsColumn: String) =
+    s"${plugDetailsColumn}_updated"
 
   private def updateField(schema: StructType,
                           builder: mutable.StringBuilder,

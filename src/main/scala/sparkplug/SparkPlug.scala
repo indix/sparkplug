@@ -10,6 +10,7 @@ import scala.util.Try
 
 case class SparkPlug(
     isPlugDetailsEnabled: Boolean,
+    plugDetailsColumn: String,
     isValidateRulesEnabled: Boolean)(implicit val spark: SparkSession) {
 
   private val tableName = "__plug_table__"
@@ -31,7 +32,9 @@ case class SparkPlug(
         case (df: DataFrame, rule: PlugRule) =>
           val output = applyRule(df, rule)
 
-          rule.withColumnsRenamed(output)
+          rule.withColumnsRenamed(output,
+                                  isPlugDetailsEnabled,
+                                  plugDetailsColumn)
       }
 
       Right(pluggedDf)
@@ -69,9 +72,9 @@ case class SparkPlug(
 
   private def preProcessInput(in: DataFrame) = {
     if (isPlugDetailsEnabled && !in.schema.fields.exists(
-          _.name == PlugRule.plugDetailsColumn)) {
+          _.name == plugDetailsColumn)) {
       val emptyOverrideDetails = udf(() => Seq[PlugDetail]())
-      in.withColumn(PlugRule.plugDetailsColumn, emptyOverrideDetails())
+      in.withColumn(plugDetailsColumn, emptyOverrideDetails())
     } else {
       in
     }
@@ -86,7 +89,7 @@ case class SparkPlug(
   private def applyRule(frame: DataFrame, rule: PlugRule) = {
     applySql(
       frame,
-      s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled)} from $tableName")
+      s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled, plugDetailsColumn)} from $tableName")
   }
 
   private def applySql(in: DataFrame, sql: String): DataFrame = {
@@ -97,12 +100,17 @@ case class SparkPlug(
 }
 
 case class SparkPlugBuilder(isPlugDetailsEnabled: Boolean = false,
+                            plugDetailsColumn: String = "plugDetails",
                             isValidateRulesEnabled: Boolean = false)(
     implicit val spark: SparkSession) {
-  def enablePlugDetails = copy(isPlugDetailsEnabled = true)
+  def enablePlugDetails(plugDetailsColumn: String = plugDetailsColumn) =
+    copy(isPlugDetailsEnabled = true, plugDetailsColumn = plugDetailsColumn)
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
 
-  def create() = new SparkPlug(isPlugDetailsEnabled, isValidateRulesEnabled)
+  def create() =
+    new SparkPlug(isPlugDetailsEnabled,
+                  plugDetailsColumn,
+                  isValidateRulesEnabled)
 }
 
 object SparkPlug {

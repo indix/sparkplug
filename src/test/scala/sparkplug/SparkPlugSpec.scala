@@ -15,6 +15,10 @@ case class TestRowWithPlugDetails(title: String,
                                   brand: String,
                                   price: Int,
                                   plugDetails: Seq[PlugDetail] = Seq())
+case class TestRowWithOverrideDetails(title: String,
+                                      brand: String,
+                                      price: Int,
+                                      overrideDetails: Seq[PlugDetail] = Seq())
 case class TestPriceDetails(minPrice: Double,
                             maxPrice: Double,
                             availability: String = "available")
@@ -35,11 +39,19 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     sparkPlug.plug(df, List.empty).right.get should be(df)
   }
 
-  it should "add plug details to the df if enabled" in {
+  it should "add default plug details to the df if enabled" in {
     val df = spark.emptyDataFrame
-    val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
+    val sparkPlug = SparkPlug.builder.enablePlugDetails().create()
     sparkPlug.plug(df, List.empty).right.get.schema.fieldNames should contain(
       "plugDetails")
+  }
+
+  it should "add custom plug details to the df if enabled" in {
+    val df = spark.emptyDataFrame
+    val sparkPlug =
+      SparkPlug.builder.enablePlugDetails("overrideDetails").create()
+    sparkPlug.plug(df, List.empty).right.get.schema.fieldNames should contain(
+      "overrideDetails")
   }
 
   it should "validate rules if enabled" in {
@@ -212,7 +224,7 @@ class SparkPlugSpec extends FlatSpec with Matchers {
         TestRowWithPlugDetails("iPhone", "Apple", 300),
         TestRowWithPlugDetails("Galaxy", "Samsung", 200)
       ))
-    val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
+    val sparkPlug = SparkPlug.builder.enablePlugDetails().create()
     val rules = List(
       PlugRule("rule1",
                "version1",
@@ -237,13 +249,50 @@ class SparkPlugSpec extends FlatSpec with Matchers {
       Seq(PlugDetail("rule2", "version1", Seq("price"))))
   }
 
+  it should "apply rules with custom plug details" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRowWithPlugDetails("iPhone", "Apple", 300),
+        TestRowWithPlugDetails("Galaxy", "Samsung", 200)
+      ))
+    val sparkPlug =
+      SparkPlug.builder.enablePlugDetails("overrideDetails").create()
+    val rules = List(
+      PlugRule("rule1",
+               "version1",
+               "title like '%iPhone%'",
+               Seq(PlugAction("price", "1000"))),
+      PlugRule("rule2",
+               "version1",
+               "title like '%Galaxy%'",
+               Seq(PlugAction("price", "700")))
+    )
+
+    import spark.implicits._
+    val output =
+      sparkPlug
+        .plug(df, rules)
+        .right
+        .get
+        .as[TestRowWithOverrideDetails]
+        .collect()
+    output.length should be(2)
+    output(0).price should be(1000)
+    output(0).overrideDetails should be(
+      Seq(PlugDetail("rule1", "version1", Seq("price"))))
+
+    output(1).price should be(700)
+    output(1).overrideDetails should be(
+      Seq(PlugDetail("rule2", "version1", Seq("price"))))
+  }
+
   it should "apply rules with plug details even if not in input" in {
     val df = spark.createDataFrame(
       List(
         TestRow("iPhone", "Apple", 300),
         TestRow("Galaxy", "Samsung", 200)
       ))
-    val sparkPlug = SparkPlug.builder.enablePlugDetails.create()
+    val sparkPlug = SparkPlug.builder.enablePlugDetails().create()
     val rules = List(
       PlugRule("rule1",
                "version1",
