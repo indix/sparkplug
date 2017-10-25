@@ -31,16 +31,15 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
     } else {
       registerUdf(spark)
       setupCheckpointing(spark, checkpointDetails)
-      val rulesBroadcast = spark.sparkContext.broadcast(rules)
-      val preProcessedInput = preProcessInput(in)
-
-      val pluggedDf =
-        rulesBroadcast.value.zipWithIndex.foldLeft(preProcessedInput) {
-          case (df: DataFrame, (rule: PlugRule, ruleNumber: Int)) =>
-            repartitionAndCheckpoint(applyRule(df, rule), ruleNumber)
-        }
-
-      Right(pluggedDf)
+      Right(
+        spark.sparkContext
+          .broadcast(rules)
+          .value
+          .zipWithIndex
+          .foldLeft(preProcessInput(in)) {
+            case (df: DataFrame, (rule: PlugRule, ruleNumber: Int)) =>
+              repartitionAndCheckpoint(applyRule(df, rule), ruleNumber)
+          })
     }
   }
 
