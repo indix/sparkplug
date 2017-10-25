@@ -20,13 +20,6 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
 
   private val tableName = "__plug_table__"
 
-  def setupCheckpointing(
-      spark: SparkSession,
-      checkpointDetails: Option[SparkPlugCheckpointDetails]) = {
-    checkpointDetails.foreach(cd =>
-      spark.sparkContext.setCheckpointDir(cd.checkpointDir))
-  }
-
   def plug(in: DataFrame, rules: List[PlugRule])
     : Either[List[PlugRuleValidationError], DataFrame] = {
     val validationResult = Option(isValidateRulesEnabled)
@@ -54,26 +47,6 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
 
       Right(pluggedDf)
     }
-  }
-
-  private def repartitionAndCheckpoint(in: Dataset[Row], ruleNumber: Int) = {
-    checkpointDetails.fold(in) { cd =>
-      (repartition(cd, ruleNumber) _ andThen checkpoint(cd, ruleNumber))(in)
-    }
-  }
-
-  private def checkpoint(checkpointDetails: SparkPlugCheckpointDetails,
-                         ruleNumber: Int)(in: Dataset[Row]) = {
-    if ((ruleNumber + 1) % (2 * checkpointDetails.rulesPerStage) == 0)
-      in.checkpoint()
-    else in
-  }
-
-  private def repartition(checkpointDetails: SparkPlugCheckpointDetails,
-                          ruleNumber: Int)(in: Dataset[Row]) = {
-    if ((ruleNumber + 1) % checkpointDetails.rulesPerStage == 0)
-      in.repartition(checkpointDetails.numberOfPartitions)
-    else in
   }
 
   def validate(schema: StructType, rules: List[PlugRule]) = {
@@ -130,6 +103,33 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
   private def applySql(in: DataFrame, sql: String): DataFrame = {
     in.createOrReplaceTempView(tableName)
     in.sqlContext.sql(sql)
+  }
+
+  private def repartitionAndCheckpoint(in: Dataset[Row], ruleNumber: Int) = {
+    checkpointDetails.fold(in) { cd =>
+      (repartition(cd, ruleNumber) _ andThen checkpoint(cd, ruleNumber))(in)
+    }
+  }
+
+  private def checkpoint(checkpointDetails: SparkPlugCheckpointDetails,
+                         ruleNumber: Int)(in: Dataset[Row]) = {
+    if ((ruleNumber + 1) % (2 * checkpointDetails.rulesPerStage) == 0)
+      in.checkpoint()
+    else in
+  }
+
+  private def repartition(checkpointDetails: SparkPlugCheckpointDetails,
+                          ruleNumber: Int)(in: Dataset[Row]) = {
+    if ((ruleNumber + 1) % checkpointDetails.rulesPerStage == 0)
+      in.repartition(checkpointDetails.numberOfPartitions)
+    else in
+  }
+
+  private def setupCheckpointing(
+      spark: SparkSession,
+      checkpointDetails: Option[SparkPlugCheckpointDetails]) = {
+    checkpointDetails.foreach(cd =>
+      spark.sparkContext.setCheckpointDir(cd.checkpointDir))
   }
 
 }
