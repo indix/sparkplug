@@ -1,16 +1,23 @@
 package sparkplug
 
-import java.io.File
-
 import org.apache.spark.SparkConf
+import org.apache.spark.scheduler.{
+  AccumulableInfo,
+  SparkListener,
+  SparkListenerJobEnd,
+  SparkListenerStageCompleted
+}
 import org.apache.spark.sql.SparkSession
 import org.scalatest._
+import org.scalatest.concurrent.ScalaFutures
 import sparkplug.models.{
   PlugAction,
   PlugDetail,
   PlugRule,
   PlugRuleValidationError
 }
+
+import scala.concurrent.{Future, Promise}
 
 case class TestRow(title: String, brand: String, price: Int)
 case class TestRowWithPlugDetails(title: String,
@@ -28,7 +35,42 @@ case class TestRowWithStruct(title: String,
                              brand: String,
                              price: Option[TestPriceDetails])
 
-class SparkPlugSpec extends FlatSpec with Matchers {
+trait SpecAccumulatorsSparkListener extends ScalaFutures {
+
+  implicit val spark: SparkSession
+
+  def addListener: Future[Map[String, Long]] = {
+    val promise = Promise[Map[String, Long]]()
+
+    spark.sparkContext.addSparkListener(new SparkListener {
+      val accumulatorsNamespace = "SparkPlug"
+      var accumulators = Map[String, Long]()
+
+      override def onStageCompleted(
+          stageCompleted: SparkListenerStageCompleted) {
+        stageCompleted.stageInfo.accumulables.foreach {
+          case (_, info: AccumulableInfo) =>
+            info.name
+              .filter(_.startsWith(accumulatorsNamespace))
+              .foreach((s: String) => {
+                accumulators = accumulators ++ Map(s -> info.value.get.asInstanceOf[Long])
+              })
+        }
+      }
+
+      override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
+        if (!promise.isCompleted) promise success accumulators
+      }
+    })
+
+    promise.future
+  }
+}
+
+class SparkPlugSpec
+    extends FlatSpec
+    with Matchers
+    with SpecAccumulatorsSparkListener {
   implicit val spark: SparkSession = SparkSession.builder
     .config(new SparkConf())
     .enableHiveSupport()
@@ -165,6 +207,39 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     output.length should be(2)
     output.filter(_.title == "iPhone").head.price should be(1000)
     output.filter(_.title == "Galaxy").head.price should be(700)
+  }
+
+  it should "set accumulators" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRow("iPhone", "Apple", 300),
+        TestRow("Galaxy", "Samsung", 200)
+      ))
+    val sparkPlug = SparkPlug.builder.enableAccumulators
+      .create()
+    val rules = List(
+      PlugRule("rule1",
+               "version1",
+               "title like '%iPhone%'",
+               Seq(PlugAction("price", "1000"))),
+      PlugRule("rule2",
+               "version1",
+               "title like '%Galaxy%'",
+               Seq(PlugAction("price", "700"))),
+      PlugRule("rule3",
+               "version1",
+               "title like '%Galaxy%'",
+               Seq(PlugAction("price", "700")))
+    )
+
+    import spark.implicits._
+    val accumulator = addListener
+    val output = sparkPlug.plug(df, rules).right.get.as[TestRow].collect()
+    output.length should be(2)
+    accumulator.futureValue should be(
+      Map(
+        "SparkPlug.Changed" -> 2
+      ))
   }
 
   it should "be able to validate derived values" in {

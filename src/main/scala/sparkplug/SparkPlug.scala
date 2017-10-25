@@ -1,5 +1,6 @@
 package sparkplug
 
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
@@ -12,11 +13,12 @@ case class SparkPlugCheckpointDetails(checkpointDir: String,
                                       rulesPerStage: Int,
                                       numberOfPartitions: Int)
 
-case class SparkPlug(isPlugDetailsEnabled: Boolean,
-                     plugDetailsColumn: String,
-                     isValidateRulesEnabled: Boolean,
-                     checkpointDetails: Option[SparkPlugCheckpointDetails])(
-    implicit val spark: SparkSession) {
+case class SparkPlug(
+    isPlugDetailsEnabled: Boolean,
+    plugDetailsColumn: String,
+    isValidateRulesEnabled: Boolean,
+    checkpointDetails: Option[SparkPlugCheckpointDetails],
+    isAccumulatorsEnabled: Boolean)(implicit val spark: SparkSession) {
 
   private val tableName = "__plug_table__"
 
@@ -31,16 +33,34 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
     } else {
       registerUdf(spark)
       setupCheckpointing(spark, checkpointDetails)
-      Right(
-        spark.sparkContext
-          .broadcast(rules)
-          .value
-          .zipWithIndex
-          .foldLeft(preProcessInput(in)) {
-            case (df: DataFrame, (rule: PlugRule, ruleNumber: Int)) =>
-              repartitionAndCheckpoint(applyRule(df, rule), ruleNumber)
-          })
+      Right(plugDf(in, rules))
     }
+  }
+
+  private def plugDf(in: DataFrame, rules: List[PlugRule]) = {
+    val out = spark.sparkContext
+      .broadcast(rules)
+      .value
+      .zipWithIndex
+      .foldLeft(preProcessInput(in)) {
+        case (df: DataFrame, (rule: PlugRule, ruleNumber: Int)) =>
+          repartitionAndCheckpoint(applyRule(df, rule), ruleNumber)
+      }
+
+    Option(isAccumulatorsEnabled)
+      .filter(identity)
+      .foreach(_ => {
+        val accumulatorChanged =
+          spark.sparkContext.longAccumulator(s"SparkPlug.Changed")
+        out
+          .filter(
+            _.getAs[Seq[GenericRowWithSchema]](plugDetailsColumn).nonEmpty)
+          .foreach((_: Row) => {
+            accumulatorChanged.add(1)
+          })
+      })
+
+    out
   }
 
   def validate(schema: StructType, rules: List[PlugRule]) = {
@@ -134,8 +154,8 @@ case class SparkPlugBuilder(
     isPlugDetailsEnabled: Boolean = false,
     plugDetailsColumn: String = "plugDetails",
     isValidateRulesEnabled: Boolean = false,
-    checkpointDetails: Option[SparkPlugCheckpointDetails] = None)(
-    implicit val spark: SparkSession) {
+    checkpointDetails: Option[SparkPlugCheckpointDetails] = None,
+    isAccumulatorsEnabled: Boolean = false)(implicit val spark: SparkSession) {
   def enablePlugDetails(plugDetailsColumn: String = plugDetailsColumn) =
     copy(isPlugDetailsEnabled = true, plugDetailsColumn = plugDetailsColumn)
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
@@ -148,11 +168,15 @@ case class SparkPlugBuilder(
                                    rulesPerStage,
                                    numberOfParitions)))
 
+  def enableAccumulators =
+    copy(isAccumulatorsEnabled = true, isPlugDetailsEnabled = true)
+
   def create() =
     new SparkPlug(isPlugDetailsEnabled,
                   plugDetailsColumn,
                   isValidateRulesEnabled,
-                  checkpointDetails)
+                  checkpointDetails,
+                  isAccumulatorsEnabled)
 }
 
 object SparkPlug {
