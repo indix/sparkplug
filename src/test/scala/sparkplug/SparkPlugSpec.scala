@@ -1,5 +1,7 @@
 package sparkplug
 
+import java.io.File
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.scalatest._
@@ -136,6 +138,33 @@ class SparkPlugSpec extends FlatSpec with Matchers {
     output.length should be(2)
     output(0).price should be(1000)
     output(1).price should be(700)
+  }
+
+  it should "checkpoint" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRow("iPhone", "Apple", 300),
+        TestRow("Galaxy", "Samsung", 200)
+      ))
+    val sparkPlug = SparkPlug.builder
+      .enableCheckpointing("src/test/resources/checkpoint_dir", 1, 10)
+      .create()
+    val rules = List(
+      PlugRule("rule1",
+               "version1",
+               "title like '%iPhone%'",
+               Seq(PlugAction("price", "1000"))),
+      PlugRule("rule2",
+               "version1",
+               "title like '%Galaxy%'",
+               Seq(PlugAction("price", "700")))
+    )
+
+    import spark.implicits._
+    val output = sparkPlug.plug(df, rules).right.get.as[TestRow].collect()
+    output.length should be(2)
+    output.filter(_.title == "iPhone").head.price should be(1000)
+    output.filter(_.title == "Galaxy").head.price should be(700)
   }
 
   it should "be able to validate derived values" in {

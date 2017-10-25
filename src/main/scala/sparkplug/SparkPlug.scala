@@ -2,18 +2,30 @@ package sparkplug
 
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
 import sparkplug.udfs.SparkPlugUDFs
 
 import scala.util.Try
 
-case class SparkPlug(
-    isPlugDetailsEnabled: Boolean,
-    plugDetailsColumn: String,
-    isValidateRulesEnabled: Boolean)(implicit val spark: SparkSession) {
+case class SparkPlugCheckpointDetails(checkpointDir: String,
+                                      rulesPerStage: Int,
+                                      numberOfPartitions: Int)
+
+case class SparkPlug(isPlugDetailsEnabled: Boolean,
+                     plugDetailsColumn: String,
+                     isValidateRulesEnabled: Boolean,
+                     checkpointDetails: Option[SparkPlugCheckpointDetails])(
+    implicit val spark: SparkSession) {
 
   private val tableName = "__plug_table__"
+
+  def setupCheckpointing(
+      spark: SparkSession,
+      checkpointDetails: Option[SparkPlugCheckpointDetails]) = {
+    checkpointDetails.foreach(cd =>
+      spark.sparkContext.setCheckpointDir(cd.checkpointDir))
+  }
 
   def plug(in: DataFrame, rules: List[PlugRule])
     : Either[List[PlugRuleValidationError], DataFrame] = {
@@ -25,20 +37,43 @@ case class SparkPlug(
       Left(validationResult.get)
     } else {
       registerUdf(spark)
+      setupCheckpointing(spark, checkpointDetails)
       val rulesBroadcast = spark.sparkContext.broadcast(rules)
       val preProcessedInput = preProcessInput(in)
 
-      val pluggedDf = rulesBroadcast.value.foldLeft(preProcessedInput) {
-        case (df: DataFrame, rule: PlugRule) =>
-          val output = applyRule(df, rule)
+      val pluggedDf =
+        rulesBroadcast.value.zipWithIndex.foldLeft(preProcessedInput) {
+          case (df: DataFrame, (rule: PlugRule, ruleNumber: Int)) =>
+            val output = applyRule(df, rule)
 
-          rule.withColumnsRenamed(output,
-                                  isPlugDetailsEnabled,
-                                  plugDetailsColumn)
-      }
+            val renamed = rule.withColumnsRenamed(output,
+                                                  isPlugDetailsEnabled,
+                                                  plugDetailsColumn)
+            repartitionAndCheckpoint(renamed, ruleNumber)
+        }
 
       Right(pluggedDf)
     }
+  }
+
+  private def repartitionAndCheckpoint(in: Dataset[Row], ruleNumber: Int) = {
+    checkpointDetails.fold(in) { cd =>
+      (repartition(cd, ruleNumber) _ andThen checkpoint(cd, ruleNumber))(in)
+    }
+  }
+
+  private def checkpoint(checkpointDetails: SparkPlugCheckpointDetails,
+                         ruleNumber: Int)(in: Dataset[Row]) = {
+    if ((ruleNumber + 1) % (2 * checkpointDetails.rulesPerStage) == 0)
+      in.checkpoint()
+    else in
+  }
+
+  private def repartition(checkpointDetails: SparkPlugCheckpointDetails,
+                          ruleNumber: Int)(in: Dataset[Row]) = {
+    if ((ruleNumber + 1) % checkpointDetails.rulesPerStage == 0)
+      in.repartition(checkpointDetails.numberOfPartitions)
+    else in
   }
 
   def validate(schema: StructType, rules: List[PlugRule]) = {
@@ -99,18 +134,29 @@ case class SparkPlug(
 
 }
 
-case class SparkPlugBuilder(isPlugDetailsEnabled: Boolean = false,
-                            plugDetailsColumn: String = "plugDetails",
-                            isValidateRulesEnabled: Boolean = false)(
+case class SparkPlugBuilder(
+    isPlugDetailsEnabled: Boolean = false,
+    plugDetailsColumn: String = "plugDetails",
+    isValidateRulesEnabled: Boolean = false,
+    checkpointDetails: Option[SparkPlugCheckpointDetails] = None)(
     implicit val spark: SparkSession) {
   def enablePlugDetails(plugDetailsColumn: String = plugDetailsColumn) =
     copy(isPlugDetailsEnabled = true, plugDetailsColumn = plugDetailsColumn)
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
+  def enableCheckpointing(checkpointDir: String,
+                          rulesPerStage: Int,
+                          numberOfParitions: Int) =
+    copy(
+      checkpointDetails = Some(
+        SparkPlugCheckpointDetails(checkpointDir,
+                                   rulesPerStage,
+                                   numberOfParitions)))
 
   def create() =
     new SparkPlug(isPlugDetailsEnabled,
                   plugDetailsColumn,
-                  isValidateRulesEnabled)
+                  isValidateRulesEnabled,
+                  checkpointDetails)
 }
 
 object SparkPlug {

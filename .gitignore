@@ -3,3 +3,4 @@ target/
 *.log
 metastore_db/
 *.gpg
+checkpoint_dir/
