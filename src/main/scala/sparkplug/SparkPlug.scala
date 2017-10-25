@@ -37,12 +37,7 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
       val pluggedDf =
         rulesBroadcast.value.zipWithIndex.foldLeft(preProcessedInput) {
           case (df: DataFrame, (rule: PlugRule, ruleNumber: Int)) =>
-            val output = applyRule(df, rule)
-
-            val renamed = rule.withColumnsRenamed(output,
-                                                  isPlugDetailsEnabled,
-                                                  plugDetailsColumn)
-            repartitionAndCheckpoint(renamed, ruleNumber)
+            repartitionAndCheckpoint(applyRule(df, rule), ruleNumber)
         }
 
       Right(pluggedDf)
@@ -95,9 +90,11 @@ case class SparkPlug(isPlugDetailsEnabled: Boolean,
   }
 
   private def applyRule(frame: DataFrame, rule: PlugRule) = {
-    applySql(
+    val output = applySql(
       frame,
       s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled, plugDetailsColumn)} from $tableName")
+
+    rule.withColumnsRenamed(output, isPlugDetailsEnabled, plugDetailsColumn)
   }
 
   private def applySql(in: DataFrame, sql: String): DataFrame = {
