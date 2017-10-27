@@ -5,17 +5,19 @@ import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
-import sparkplug.udfs.SparkPlugUDFs
+import sparkplug.udfs.AddPlugDetailUDF
+import sparkplug.udfs.SparkPlugUDFs.defaultPlugDetailsSchema
 
 import scala.util.Try
+
+case class SparkPlugDetails(column: String)
 
 case class SparkPlugCheckpointDetails(checkpointDir: String,
                                       rulesPerStage: Int,
                                       numberOfPartitions: Int)
 
 case class SparkPlug(
-    private val isPlugDetailsEnabled: Boolean,
-    private val plugDetailsColumn: String,
+    private val plugDetails: Option[SparkPlugDetails],
     private val isValidateRulesEnabled: Boolean,
     private val checkpointDetails: Option[SparkPlugCheckpointDetails],
     private val isAccumulatorsEnabled: Boolean)(
@@ -57,7 +59,7 @@ case class SparkPlug(
           spark.sparkContext.longAccumulator(s"SparkPlug.Changed")
         out
           .filter(
-            _.getAs[Seq[GenericRowWithSchema]](plugDetailsColumn).nonEmpty)
+            _.getAs[Seq[GenericRowWithSchema]](plugDetails.get.column).nonEmpty)
           .foreach((_: Row) => {
             accumulatorChanged.add(1)
           })
@@ -96,27 +98,26 @@ case class SparkPlug(
   }
 
   private def preProcessInput(in: DataFrame) = {
-    if (isPlugDetailsEnabled && !in.schema.fields.exists(
-          _.name == plugDetailsColumn)) {
+    plugDetails.fold(in)(pd => {
       val emptyOverrideDetails = udf(() => Seq[PlugDetail]())
-      in.withColumn(plugDetailsColumn, emptyOverrideDetails())
-    } else {
-      in
-    }
+      in.withColumn(plugDetails.get.column, emptyOverrideDetails())
+    })
   }
 
   private def registerUdf(spark: SparkSession) = {
-    if (isPlugDetailsEnabled) {
-      SparkPlugUDFs.registerUDFs(spark.sqlContext)
+    plugDetails.foreach { _ =>
+      spark.sqlContext.udf.register("addPlugDetail",
+                                    new AddPlugDetailUDF(),
+                                    defaultPlugDetailsSchema)
     }
   }
 
   private def applyRule(frame: DataFrame, rule: PlugRule) = {
     val output = applySql(
       frame,
-      s"select *,${rule.asSql(frame.schema, isPlugDetailsEnabled, plugDetailsColumn)} from $tableName")
+      s"select *,${rule.asSql(frame.schema, plugDetails.map(_.column))} from $tableName")
 
-    rule.withColumnsRenamed(output, isPlugDetailsEnabled, plugDetailsColumn)
+    rule.withColumnsRenamed(output, plugDetails.map(_.column))
   }
 
   private def applySql(in: DataFrame, sql: String): DataFrame = {
@@ -154,13 +155,12 @@ case class SparkPlug(
 }
 
 case class SparkPlugBuilder(
-    isPlugDetailsEnabled: Boolean = false,
-    plugDetailsColumn: String = "plugDetails",
+    plugDetails: Option[SparkPlugDetails] = None,
     isValidateRulesEnabled: Boolean = false,
     checkpointDetails: Option[SparkPlugCheckpointDetails] = None,
     isAccumulatorsEnabled: Boolean = false)(implicit val spark: SparkSession) {
-  def enablePlugDetails(plugDetailsColumn: String = plugDetailsColumn) =
-    copy(isPlugDetailsEnabled = true, plugDetailsColumn = plugDetailsColumn)
+  def enablePlugDetails(plugDetailsColumn: String = "plugDetails") =
+    copy(plugDetails = Some(SparkPlugDetails(plugDetailsColumn)))
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
   def enableCheckpointing(checkpointDir: String,
                           rulesPerStage: Int,
@@ -172,11 +172,10 @@ case class SparkPlugBuilder(
                                    numberOfPartitions)))
 
   def enableAccumulators =
-    copy(isAccumulatorsEnabled = true, isPlugDetailsEnabled = true)
+    copy(isAccumulatorsEnabled = true).enablePlugDetails()
 
   def create() =
-    new SparkPlug(isPlugDetailsEnabled,
-                  plugDetailsColumn,
+    new SparkPlug(plugDetails,
                   isValidateRulesEnabled,
                   checkpointDetails,
                   isAccumulatorsEnabled)

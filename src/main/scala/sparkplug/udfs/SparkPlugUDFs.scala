@@ -1,9 +1,9 @@
 package sparkplug.udfs
 
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.api.java.UDF4
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.ArrayType
-import org.apache.spark.sql.{Row, SQLContext}
 import sparkplug.models.PlugDetail
 import sparkplug.utils.ReflectionUtil
 
@@ -19,10 +19,4 @@ object SparkPlugUDFs {
   val defaultPlugDetailSchema =
     ReflectionUtil.caseClassToSparkSchema[PlugDetail]
   val defaultPlugDetailsSchema = ArrayType(defaultPlugDetailSchema)
-
-  def registerUDFs(sqlContext: SQLContext) = {
-    sqlContext.udf.register("addPlugDetail",
-                            new AddPlugDetailUDF(),
-                            defaultPlugDetailsSchema)
-  }
 }

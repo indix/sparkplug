@@ -60,9 +60,7 @@ case class PlugRule(name: String,
       _.applyOrElse((actions, schema), defaultValidation))
   }
 
-  def asSql(schema: StructType,
-            addPlugDetails: Boolean,
-            plugDetailsColumn: String) = {
+  def asSql(schema: StructType, plugDetailsColumn: Option[String]) = {
     val notEqualsBuilder = new ListBuffer[String]
     val builder = new StringBuilder
 
@@ -80,19 +78,18 @@ case class PlugRule(name: String,
         }
     }
 
-    if (addPlugDetails) {
+    if (plugDetailsColumn.nonEmpty) {
       val notEqualCondition = s"(${notEqualsBuilder.mkString(" or ")})"
       builder.append(
-        s""", if($condition and $notEqualCondition, addPlugDetail($plugDetailsColumn, "$name", "$version", $fieldNames), $plugDetailsColumn) as ${updatedPlugDetailsColumn(
-          plugDetailsColumn)}""")
+        s""", if($condition and $notEqualCondition, addPlugDetail(${plugDetailsColumn.get}, "$name", "$version", $fieldNames), ${plugDetailsColumn.get}) as ${updatedPlugDetailsColumn(
+          plugDetailsColumn.get)}""")
     }
 
     builder.mkString
   }
 
   def withColumnsRenamed(dataset: Dataset[Row],
-                         addPlugDetails: Boolean,
-                         plugDetailsColumn: String) = {
+                         plugDetailsColumn: Option[String]) = {
     val pluggedDf = actions
       .foldLeft(dataset)((overridden, action) => {
         val modified = overridden
@@ -102,11 +99,10 @@ case class PlugRule(name: String,
         modified.drop(oldKey(action.key))
       })
 
-    Option(addPlugDetails).filter(identity).fold(pluggedDf) { _ =>
+    plugDetailsColumn.fold(pluggedDf) { c =>
       pluggedDf
-        .drop(plugDetailsColumn)
-        .withColumnRenamed(updatedPlugDetailsColumn(plugDetailsColumn),
-                           plugDetailsColumn)
+        .drop(c)
+        .withColumnRenamed(updatedPlugDetailsColumn(c), c)
     }
   }
 
