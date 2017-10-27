@@ -18,7 +18,8 @@ case class SparkPlug(
     private val plugDetailsColumn: String,
     private val isValidateRulesEnabled: Boolean,
     private val checkpointDetails: Option[SparkPlugCheckpointDetails],
-    private val isAccumulatorsEnabled: Boolean)(implicit val spark: SparkSession) {
+    private val isAccumulatorsEnabled: Boolean)(
+    implicit val spark: SparkSession) {
 
   private val tableName = "__plug_table__"
 
