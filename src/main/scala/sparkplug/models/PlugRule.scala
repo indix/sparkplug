@@ -65,12 +65,20 @@ case class PlugRule(name: String,
             plugDetailsColumn: String) = {
     val notEqualsBuilder = new ListBuffer[String]
     val builder = new StringBuilder
-    convertedActions(schema).foldLeft(builder)((builder, action) => {
-      val actionKey = action.key
-      val actionValue = action.value
-      notEqualsBuilder.append(s"not($actionKey <=> $actionValue)")
-      updateField(schema, builder, actionKey, actionValue)
-    })
+
+    val convertedActions = convertActions(schema)
+    convertedActions.zipWithIndex.foldLeft(builder) {
+      case (b, (action, i)) =>
+        val actionKey = action.key
+        val actionValue = action.value
+        notEqualsBuilder.append(s"not($actionKey <=> $actionValue)")
+        val builderWithField = updateField(schema, b, actionKey, actionValue)
+        if (i < convertedActions.length - 1) {
+          builderWithField.append(",")
+        } else {
+          builderWithField
+        }
+    }
 
     if (addPlugDetails) {
       val notEqualCondition = s"(${notEqualsBuilder.mkString(" or ")})"
@@ -134,7 +142,7 @@ case class PlugRule(name: String,
     }
   }
 
-  private def convertedActions(schema: StructType) = {
+  private def convertActions(schema: StructType) = {
     val fields = buildFieldsMap(schema).toMap
     actions
       .map(

@@ -53,7 +53,8 @@ trait SpecAccumulatorsSparkListener extends ScalaFutures {
             info.name
               .filter(_.startsWith(accumulatorsNamespace))
               .foreach((s: String) => {
-                accumulators = accumulators ++ Map(s -> info.value.get.asInstanceOf[Long])
+                accumulators = accumulators ++ Map(
+                  s -> info.value.get.asInstanceOf[Long])
               })
         }
       }
@@ -168,11 +169,13 @@ class SparkPlugSpec
       PlugRule("rule1",
                "version1",
                "title like '%iPhone%'",
-               Seq(PlugAction("price", "1000"))),
+               Seq(PlugAction("price", "1000"),
+                   PlugAction("title", "Apple iPhone"))),
       PlugRule("rule2",
                "version1",
                "title like '%Galaxy%'",
-               Seq(PlugAction("price", "700")))
+               Seq(PlugAction("price", "700"),
+                   PlugAction("title", "Apple iPhone")))
     )
 
     import spark.implicits._
@@ -302,7 +305,8 @@ class SparkPlugSpec
       PlugRule("rule1",
                "version1",
                "title like '%iPhone%'",
-               Seq(PlugAction("price.minPrice", "1000.0"))),
+               Seq(PlugAction("price.minPrice", "1000.0"),
+                   PlugAction("title", "Apple iPhone"))),
       PlugRule("rule2",
                "version1",
                "title like '%Galaxy%'",
@@ -318,6 +322,7 @@ class SparkPlugSpec
       sparkPlug.plug(df, rules).right.get.as[TestRowWithStruct].collect()
     output.length should be(3)
     output(0).price.get.minPrice should be(1000.0)
+    output(0).title should be("Apple iPhone")
     output(1).price.get.availability should be("available")
     output(2).price.isDefined should be(false)
   }

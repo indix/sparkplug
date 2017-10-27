@@ -24,6 +24,7 @@ case class SparkPlug(
 
   def plug(in: DataFrame, rules: List[PlugRule])
     : Either[List[PlugRuleValidationError], DataFrame] = {
+
     val validationResult = Option(isValidateRulesEnabled)
       .filter(identity)
       .map(_ => validate(in.schema, rules))
@@ -161,12 +162,12 @@ case class SparkPlugBuilder(
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
   def enableCheckpointing(checkpointDir: String,
                           rulesPerStage: Int,
-                          numberOfParitions: Int) =
+                          numberOfPartitions: Int) =
     copy(
       checkpointDetails = Some(
         SparkPlugCheckpointDetails(checkpointDir,
                                    rulesPerStage,
-                                   numberOfParitions)))
+                                   numberOfPartitions)))
 
   def enableAccumulators =
     copy(isAccumulatorsEnabled = true, isPlugDetailsEnabled = true)
