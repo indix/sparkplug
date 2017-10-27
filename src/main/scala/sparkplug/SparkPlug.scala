@@ -14,13 +14,16 @@ case class SparkPlugCheckpointDetails(checkpointDir: String,
                                       numberOfPartitions: Int)
 
 case class SparkPlug(
-    isPlugDetailsEnabled: Boolean,
-    plugDetailsColumn: String,
-    isValidateRulesEnabled: Boolean,
-    checkpointDetails: Option[SparkPlugCheckpointDetails],
-    isAccumulatorsEnabled: Boolean)(implicit val spark: SparkSession) {
+    private val isPlugDetailsEnabled: Boolean,
+    private val plugDetailsColumn: String,
+    private val isValidateRulesEnabled: Boolean,
+    private val checkpointDetails: Option[SparkPlugCheckpointDetails],
+    private val isAccumulatorsEnabled: Boolean)(implicit val spark: SparkSession) {
 
   private val tableName = "__plug_table__"
+
+  registerUdf(spark)
+  setupCheckpointing(spark, checkpointDetails)
 
   def plug(in: DataFrame, rules: List[PlugRule])
     : Either[List[PlugRuleValidationError], DataFrame] = {
@@ -32,8 +35,6 @@ case class SparkPlug(
     if (validationResult.nonEmpty) {
       Left(validationResult.get)
     } else {
-      registerUdf(spark)
-      setupCheckpointing(spark, checkpointDetails)
       Right(plugDf(in, rules))
     }
   }
