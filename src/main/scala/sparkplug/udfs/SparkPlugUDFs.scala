@@ -35,4 +35,5 @@ object SparkPlugUDFs {
     ReflectionUtil.caseClassToSparkSchema[PlugDetail]
   val defaultPlugDetailsSchema = ArrayType(defaultPlugDetailSchema)
   val defaultPlugDetailsColumns = "plugDetails"
+  val defaultAddPlugDetailUDF = new DefaultAddPlugDetailUDF()
 }

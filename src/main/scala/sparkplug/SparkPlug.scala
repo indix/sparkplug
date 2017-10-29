@@ -5,10 +5,10 @@ import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
-import sparkplug.udfs.DefaultAddPlugDetailUDF
 import sparkplug.udfs.SparkPlugUDFs.{
   defaultPlugDetailsColumns,
-  defaultPlugDetailsSchema
+  defaultPlugDetailsSchema,
+  defaultAddPlugDetailUDF
 }
 
 import scala.util.Try
@@ -101,7 +101,7 @@ case class SparkPlug(
   }
 
   private def preProcessInput(in: DataFrame) = {
-    plugDetails.fold(in)(pd => {
+    plugDetails.fold(in)(_ => {
       val emptyOverrideDetails = udf(() => Seq[PlugDetail]())
       in.withColumn(plugDetails.get.column, emptyOverrideDetails())
     })
@@ -110,7 +110,7 @@ case class SparkPlug(
   private def registerUdf(spark: SparkSession) = {
     plugDetails.foreach { _ =>
       spark.sqlContext.udf.register("addPlugDetail",
-                                    new DefaultAddPlugDetailUDF(),
+                                    defaultAddPlugDetailUDF,
                                     defaultPlugDetailsSchema)
     }
   }
