@@ -23,7 +23,7 @@ class DefaultAddPlugDetailUDF extends AddPlugDetailUDF {
   override def addPlugDetails(plugDetails: Seq[Row],
                               ruleName: String,
                               ruleVersion: String,
-                              fields: Seq[String]): Unit = {
+                              fields: Seq[String]) = {
     plugDetails :+ new GenericRowWithSchema(
       Array(ruleName, ruleVersion, fields),
       SparkPlugUDFs.defaultPlugDetailSchema)
