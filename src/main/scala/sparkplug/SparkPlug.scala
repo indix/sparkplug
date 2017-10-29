@@ -5,8 +5,11 @@ import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
-import sparkplug.udfs.AddPlugDetailUDF
-import sparkplug.udfs.SparkPlugUDFs.defaultPlugDetailsSchema
+import sparkplug.udfs.DefaultAddPlugDetailUDF
+import sparkplug.udfs.SparkPlugUDFs.{
+  defaultPlugDetailsColumns,
+  defaultPlugDetailsSchema
+}
 
 import scala.util.Try
 
@@ -107,7 +110,7 @@ case class SparkPlug(
   private def registerUdf(spark: SparkSession) = {
     plugDetails.foreach { _ =>
       spark.sqlContext.udf.register("addPlugDetail",
-                                    new AddPlugDetailUDF(),
+                                    new DefaultAddPlugDetailUDF(),
                                     defaultPlugDetailsSchema)
     }
   }
@@ -159,7 +162,8 @@ case class SparkPlugBuilder(
     isValidateRulesEnabled: Boolean = false,
     checkpointDetails: Option[SparkPlugCheckpointDetails] = None,
     isAccumulatorsEnabled: Boolean = false)(implicit val spark: SparkSession) {
-  def enablePlugDetails(plugDetailsColumn: String = "plugDetails") =
+  def enablePlugDetails(
+      plugDetailsColumn: String = defaultPlugDetailsColumns) =
     copy(plugDetails = Some(SparkPlugDetails(plugDetailsColumn)))
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
   def enableCheckpointing(checkpointDir: String,
