@@ -109,7 +109,7 @@ val sparkPlug = SparkPlug.builder.enablePlugDetails("overrideDetails").create()
 
 By default, plug details is of type `Seq[PlugDetail]`. It is possible to provide a custom type by supplying a UDF to `SparkPlug` which defines how the plug details information are to be populated into the custom type.
 
-The following example show adding plug details of type `Seq[OverrideDetail]`:
+The following example shows how one can go about adding plug details of type `Seq[OverrideDetail]`:
 
 ```scala
 case class OverrideDetail(ruleId: Option[String],
@@ -133,7 +133,7 @@ class CustomAddPlugDetailUDF extends AddPlugDetailUDF[OverrideDetail] {
 }
 ```
 
-As seen in the example above, the custom UDF inherits from AddPlugDetailUDF[T] and implements the `addPlugDetails` as needed.
+As seen in the example above, the custom UDF inherits from `AddPlugDetailUDF[T]`` and implements the `addPlugDetails` method as needed.
 
 ### Working with structs
 
@@ -180,3 +180,9 @@ Values can be literal values like "iPhone", "100" or "999.9" etc. SparkPlug also
 ```
 
 The above rule appends the `brand` to the `title`
+
+### Keeping track of old value
+
+If the old value of a overridden field needs to be tracked, SparkPlug can be built with the `keepOldField` option true. This will add, for each action, a new column named `${actionKey}_${ruleName}_old`.
+
+**Note**: This feature is ideal only when `SparkPlug` is used with a single rule. This will add one column per action per rule and is not recommended for the production job. We use this feature internally when adding a rule so that we can see how each rule affects the dataset.
