@@ -1,19 +1,16 @@
 package sparkplug
 
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import sparkplug.models.{PlugDetail, PlugRule, PlugRuleValidationError}
-import sparkplug.udfs.SparkPlugUDFs.{
-  defaultPlugDetailsColumns,
-  defaultPlugDetailsSchema,
-  defaultAddPlugDetailUDF
-}
+import sparkplug.models.{PlugRule, PlugRuleValidationError}
+import sparkplug.udfs.{AddPlugDetailUDF, DefaultAddPlugDetailUDF}
+import sparkplug.udfs.SparkPlugUDFs._
 
 import scala.util.Try
 
-case class SparkPlugDetails(column: String)
+case class SparkPlugDetails(column: String,
+                            plugDetailsUDF: AddPlugDetailUDF[Product])
 
 case class SparkPlugCheckpointDetails(checkpointDir: String,
                                       rulesPerStage: Int,
@@ -102,8 +99,8 @@ case class SparkPlug(
 
   private def preProcessInput(in: DataFrame) = {
     plugDetails.fold(in)(_ => {
-      val emptyOverrideDetails = udf(() => Seq[PlugDetail]())
-      in.withColumn(plugDetails.get.column, emptyOverrideDetails())
+      in.withColumn(plugDetails.get.column,
+                    defaultAddPlugDetailUDF.emptyPlugDetails())
     })
   }
 
@@ -111,7 +108,7 @@ case class SparkPlug(
     plugDetails.foreach { _ =>
       spark.sqlContext.udf.register("addPlugDetail",
                                     defaultAddPlugDetailUDF,
-                                    defaultPlugDetailsSchema)
+                                    defaultAddPlugDetailUDF.plugDetailsSchema)
     }
   }
 
@@ -162,10 +159,15 @@ case class SparkPlugBuilder(
     isValidateRulesEnabled: Boolean = false,
     checkpointDetails: Option[SparkPlugCheckpointDetails] = None,
     isAccumulatorsEnabled: Boolean = false)(implicit val spark: SparkSession) {
+
   def enablePlugDetails(
-      plugDetailsColumn: String = defaultPlugDetailsColumns) =
-    copy(plugDetails = Some(SparkPlugDetails(plugDetailsColumn)))
+      plugDetailsColumn: String = defaultAddPlugDetailUDF.plugDetailsColumn) =
+    copy(
+      plugDetails =
+        Some(SparkPlugDetails(plugDetailsColumn, defaultAddPlugDetailUDF)))
+
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
+
   def enableCheckpointing(checkpointDir: String,
                           rulesPerStage: Int,
                           numberOfPartitions: Int) =
