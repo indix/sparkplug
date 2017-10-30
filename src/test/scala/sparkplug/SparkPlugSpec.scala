@@ -7,7 +7,8 @@ import org.apache.spark.scheduler.{
   SparkListenerJobEnd,
   SparkListenerStageCompleted
 }
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import sparkplug.models.{
@@ -16,6 +17,7 @@ import sparkplug.models.{
   PlugRule,
   PlugRuleValidationError
 }
+import sparkplug.udfs.AddPlugDetailUDF
 
 import scala.concurrent.{Future, Promise}
 
@@ -24,16 +26,36 @@ case class TestRowWithPlugDetails(title: String,
                                   brand: String,
                                   price: Int,
                                   plugDetails: Seq[PlugDetail] = Seq())
-case class TestRowWithOverrideDetails(title: String,
-                                      brand: String,
-                                      price: Int,
-                                      overrideDetails: Seq[PlugDetail] = Seq())
+case class TestRowWithCustomnColumn(title: String,
+                                    brand: String,
+                                    price: Int,
+                                    overrideDetails: Seq[PlugDetail] = Seq())
 case class TestPriceDetails(minPrice: Double,
                             maxPrice: Double,
                             availability: String = "available")
 case class TestRowWithStruct(title: String,
                              brand: String,
                              price: Option[TestPriceDetails])
+
+case class OverrideDetail(ruleId: Option[String],
+                          fieldNames: Seq[String],
+                          ruleVersion: Option[String])
+
+case class TestRowWithOverrideDetails(title: String,
+                                      brand: String,
+                                      price: Int,
+                                      overrideDetails: Seq[OverrideDetail])
+
+class CustomAddPlugDetailUDF extends AddPlugDetailUDF[OverrideDetail] {
+  override def addPlugDetails(plugDetails: Seq[Row],
+                              ruleName: String,
+                              ruleVersion: String,
+                              fields: Seq[String]) = {
+    plugDetails :+ new GenericRowWithSchema(
+      Array(ruleName, fields, ruleVersion),
+      plugDetailSchema)
+  }
+}
 
 trait SpecAccumulatorsSparkListener extends ScalaFutures {
 
@@ -358,7 +380,7 @@ class SparkPlugSpec
       Seq(PlugDetail("rule2", "version1", Seq("price"))))
   }
 
-  it should "apply rules with custom plug details" in {
+  it should "apply rules with custom plug details column" in {
     val df = spark.createDataFrame(
       List(
         TestRowWithPlugDetails("iPhone", "Apple", 300),
@@ -383,7 +405,7 @@ class SparkPlugSpec
         .plug(df, rules)
         .right
         .get
-        .as[TestRowWithOverrideDetails]
+        .as[TestRowWithCustomnColumn]
         .collect()
     output.length should be(2)
     output(0).price should be(1000)
@@ -393,6 +415,45 @@ class SparkPlugSpec
     output(1).price should be(700)
     output(1).overrideDetails should be(
       Seq(PlugDetail("rule2", "version1", Seq("price"))))
+  }
+
+  it should "apply rules with custom plug details udf" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRowWithPlugDetails("iPhone", "Apple", 300),
+        TestRowWithPlugDetails("Galaxy", "Samsung", 200)
+      ))
+    val sparkPlug =
+      SparkPlug.builder
+        .enablePlugDetails("overrideDetails", new CustomAddPlugDetailUDF)
+        .create()
+    val rules = List(
+      PlugRule("rule1",
+               "version1",
+               "title like '%iPhone%'",
+               Seq(PlugAction("price", "1000"))),
+      PlugRule("rule2",
+               "version1",
+               "title like '%Galaxy%'",
+               Seq(PlugAction("price", "700")))
+    )
+
+    import spark.implicits._
+    val output =
+      sparkPlug
+        .plug(df, rules)
+        .right
+        .get
+        .as[TestRowWithOverrideDetails]
+        .collect()
+    output.length should be(2)
+    output(0).price should be(1000)
+    output(0).overrideDetails should be(
+      Seq(OverrideDetail(Some("rule1"), Seq("price"), Some("version1"))))
+
+    output(1).price should be(700)
+    output(1).overrideDetails should be(
+      Seq(OverrideDetail(Some("rule2"), Seq("price"), Some("version1"))))
   }
 
   it should "apply rules with plug details even if not in input" in {
