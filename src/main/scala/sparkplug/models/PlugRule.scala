@@ -89,14 +89,18 @@ case class PlugRule(name: String,
   }
 
   def withColumnsRenamed(dataset: Dataset[Row],
-                         plugDetailsColumn: Option[String]) = {
+                         plugDetailsColumn: Option[String],
+                         isKeepOldField: Boolean) = {
     val pluggedDf = actions
       .foldLeft(dataset)((overridden, action) => {
         val modified = overridden
           .withColumnRenamed(action.updateKey, oldKey(action.updateKey))
           .withColumnRenamed(newKey(action.updateKey), action.updateKey)
 
-        modified.drop(oldKey(action.key))
+        if (!isKeepOldField)
+          modified.drop(oldKey(action.key))
+        else
+          modified
       })
 
     plugDetailsColumn.fold(pluggedDf) { c =>

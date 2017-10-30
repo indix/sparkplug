@@ -22,6 +22,13 @@ import sparkplug.udfs.AddPlugDetailUDF
 import scala.concurrent.{Future, Promise}
 
 case class TestRow(title: String, brand: String, price: Int)
+case class TestRowWithOldField(title: String,
+                               title_rule1_old: String,
+                               title_rule2_old: String,
+                               brand: String,
+                               price: Int,
+                               price_rule1_old: Int,
+                               price_rule2_old: Int)
 case class TestRowWithPlugDetails(title: String,
                                   brand: String,
                                   price: Int,
@@ -205,6 +212,40 @@ class SparkPlugSpec
     output.length should be(2)
     output(0).price should be(1000)
     output(1).price should be(700)
+  }
+
+  it should "apply rules and keep old field values" in {
+    val df = spark.createDataFrame(
+      List(
+        TestRow("iPhone", "Apple", 300),
+        TestRow("Galaxy", "Samsung", 200)
+      ))
+    val sparkPlug = SparkPlug.builder.keepOldField.create()
+    val rules = List(
+      PlugRule("rule1",
+               "version1",
+               "title like '%iPhone%'",
+               Seq(PlugAction("price", "1000"),
+                   PlugAction("title", "Apple iPhone"))),
+      PlugRule("rule2",
+               "version1",
+               "title like '%Galaxy%'",
+               Seq(PlugAction("price", "700"),
+                   PlugAction("title", "Samsung Galaxy")))
+    )
+
+    import spark.implicits._
+    val output =
+      sparkPlug.plug(df, rules).right.get.as[TestRowWithOldField].collect()
+    output.length should be(2)
+    output(0).title should be("Apple iPhone")
+    output(0).title_rule1_old should be("iPhone")
+    output(0).price should be(1000)
+    output(0).price_rule1_old should be(300)
+    output(1).title should be("Samsung Galaxy")
+    output(1).title_rule1_old should be("Galaxy")
+    output(1).price should be(700)
+    output(1).price_rule2_old should be(200)
   }
 
   it should "checkpoint" in {

@@ -20,8 +20,8 @@ case class SparkPlug(
     private val plugDetails: Option[SparkPlugDetails],
     private val isValidateRulesEnabled: Boolean,
     private val checkpointDetails: Option[SparkPlugCheckpointDetails],
-    private val isAccumulatorsEnabled: Boolean)(
-    implicit val spark: SparkSession) {
+    private val isAccumulatorsEnabled: Boolean,
+    isKeepOldField: Boolean)(implicit val spark: SparkSession) {
 
   private val tableName = "__plug_table__"
 
@@ -116,7 +116,7 @@ case class SparkPlug(
       frame,
       s"select *,${rule.asSql(frame.schema, plugDetails.map(_.column))} from $tableName")
 
-    rule.withColumnsRenamed(output, plugDetails.map(_.column))
+    rule.withColumnsRenamed(output, plugDetails.map(_.column), isKeepOldField)
   }
 
   private def applySql(in: DataFrame, sql: String): DataFrame = {
@@ -157,7 +157,8 @@ case class SparkPlugBuilder(
     plugDetails: Option[SparkPlugDetails] = None,
     isValidateRulesEnabled: Boolean = false,
     checkpointDetails: Option[SparkPlugCheckpointDetails] = None,
-    isAccumulatorsEnabled: Boolean = false)(implicit val spark: SparkSession) {
+    isAccumulatorsEnabled: Boolean = false,
+    isKeepOldField: Boolean = false)(implicit val spark: SparkSession) {
 
   def enablePlugDetails(plugDetailsColumn: String = defaultPlugDetailsColumn,
                         plugDetailsUDF: AddPlugDetailUDF[Product] =
@@ -179,11 +180,14 @@ case class SparkPlugBuilder(
   def enableAccumulators =
     copy(isAccumulatorsEnabled = true).enablePlugDetails()
 
+  def keepOldField = copy(isKeepOldField = true)
+
   def create() =
     new SparkPlug(plugDetails,
                   isValidateRulesEnabled,
                   checkpointDetails,
-                  isAccumulatorsEnabled)
+                  isAccumulatorsEnabled,
+                  isKeepOldField)
 }
 
 object SparkPlug {
