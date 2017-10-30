@@ -19,7 +19,6 @@ abstract class AddPlugDetailUDF[+T <: Product: TypeTag: ClassTag]
 
   lazy val plugDetailSchema = ReflectionUtil.caseClassToSparkSchema[T]
   lazy val plugDetailsSchema = ArrayType(plugDetailSchema)
-  val plugDetailsColumn = "plugDetails"
 
   def emptyPlugDetails = udf(() => Seq[T]())
 
@@ -42,5 +41,6 @@ class DefaultAddPlugDetailUDF extends AddPlugDetailUDF[PlugDetail] {
 }
 
 object SparkPlugUDFs {
+  val defaultPlugDetailsColumn = "plugDetails"
   val defaultAddPlugDetailUDF = new DefaultAddPlugDetailUDF()
 }

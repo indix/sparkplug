@@ -98,17 +98,16 @@ case class SparkPlug(
   }
 
   private def preProcessInput(in: DataFrame) = {
-    plugDetails.fold(in)(_ => {
-      in.withColumn(plugDetails.get.column,
-                    defaultAddPlugDetailUDF.emptyPlugDetails())
+    plugDetails.fold(in)(pd => {
+      in.withColumn(pd.column, pd.plugDetailsUDF.emptyPlugDetails())
     })
   }
 
   private def registerUdf(spark: SparkSession) = {
-    plugDetails.foreach { _ =>
+    plugDetails.foreach { pd =>
       spark.sqlContext.udf.register("addPlugDetail",
-                                    defaultAddPlugDetailUDF,
-                                    defaultAddPlugDetailUDF.plugDetailsSchema)
+                                    pd.plugDetailsUDF,
+                                    pd.plugDetailsUDF.plugDetailsSchema)
     }
   }
 
@@ -160,11 +159,11 @@ case class SparkPlugBuilder(
     checkpointDetails: Option[SparkPlugCheckpointDetails] = None,
     isAccumulatorsEnabled: Boolean = false)(implicit val spark: SparkSession) {
 
-  def enablePlugDetails(
-      plugDetailsColumn: String = defaultAddPlugDetailUDF.plugDetailsColumn) =
+  def enablePlugDetails(plugDetailsColumn: String = defaultPlugDetailsColumn,
+                        plugDetailsUDF: AddPlugDetailUDF[Product] =
+                          new DefaultAddPlugDetailUDF) =
     copy(
-      plugDetails =
-        Some(SparkPlugDetails(plugDetailsColumn, defaultAddPlugDetailUDF)))
+      plugDetails = Some(SparkPlugDetails(plugDetailsColumn, plugDetailsUDF)))
 
   def enableRulesValidation = copy(isValidateRulesEnabled = true)
 
