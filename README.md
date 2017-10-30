@@ -105,6 +105,36 @@ By default, plug details are added to the column `plugDetails`. This can be over
 val sparkPlug = SparkPlug.builder.enablePlugDetails("overrideDetails").create()
 ```
 
+#### Custom plug details schema / class
+
+By default, plug details is of type `Seq[PlugDetail]`. It is possible to provide a custom type by supplying a UDF to `SparkPlug` which defines how the plug details information are to be populated into the custom type.
+
+The following example show adding plug details of type `Seq[OverrideDetail]`:
+
+```scala
+case class OverrideDetail(ruleId: Option[String],
+                          fieldNames: Seq[String],
+                          ruleVersion: Option[String])
+
+case class TestRowWithOverrideDetails(title: String,
+                                      brand: String,
+                                      price: Int,
+                                      overrideDetails: Seq[OverrideDetail])
+
+class CustomAddPlugDetailUDF extends AddPlugDetailUDF[OverrideDetail] {
+  override def addPlugDetails(plugDetails: Seq[Row],
+                              ruleName: String,
+                              ruleVersion: String,
+                              fields: Seq[String]) = {
+    plugDetails :+ new GenericRowWithSchema(
+      Array(ruleName, fields, ruleVersion),
+      plugDetailSchema)
+  }
+}
+```
+
+As seen in the example above, the custom UDF inherits from AddPlugDetailUDF[T] and implements the `addPlugDetails` as needed.
+
 ### Working with structs
 
 It is possible to override values within a `StructType`. 
