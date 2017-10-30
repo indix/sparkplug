@@ -183,6 +183,12 @@ The above rule appends the `brand` to the `title`
 
 ### Keeping track of old value
 
-If the old value of a overridden field needs to be tracked, SparkPlug can be built with the `keepOldField` option true. This will add, for each action, a new column named `${actionKey}_${ruleName}_old`.
+If the old value of a overridden field needs to be tracked, SparkPlug can be built with the `keepOldField` option set:
+
+```scala
+val sparkPlug = SparkPlug.builder.keepOldField.create()
+```
+
+This will add, for each action, a new column named `${actionKey}_${ruleName}_old`.
 
 **Note**: This feature is ideal only when `SparkPlug` is used with a single rule. This will add one column per action per rule and is not recommended for the production job. We use this feature internally when adding a rule so that we can see how each rule affects the dataset.
