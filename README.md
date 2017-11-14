@@ -133,7 +133,7 @@ class CustomAddPlugDetailUDF extends AddPlugDetailUDF[OverrideDetail] {
 }
 ```
 
-As seen in the example above, the custom UDF inherits from `AddPlugDetailUDF[T]`` and implements the `addPlugDetails` method as needed.
+As seen in the example above, the custom UDF inherits from `AddPlugDetailUDF[T]` and implements the `addPlugDetails` method as needed.
 
 ### Working with structs
 
