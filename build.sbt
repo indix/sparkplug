@@ -7,10 +7,12 @@ lazy val publishSettings = Seq(
   pgpSecretRing := file("local.secring.gpg"),
   pgpPublicRing := file("local.pubring.gpg"),
   pgpPassphrase := Some(sys.env.getOrElse("GPG_PASSPHRASE", "").toCharArray),
-  credentials += Credentials("Sonatype Nexus Repository Manager",
-                             "oss.sonatype.org",
-                             System.getenv("SONATYPE_USERNAME"),
-                             System.getenv("SONATYPE_PASSWORD")),
+  credentials += Credentials(
+    "Sonatype Nexus Repository Manager",
+    "oss.sonatype.org",
+    System.getenv("SONATYPE_USERNAME"),
+    System.getenv("SONATYPE_PASSWORD")
+  ),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
@@ -53,7 +55,8 @@ lazy val sparkplug = (project in file("."))
         crossScalaVersions := Seq("2.11.11"),
         version := libVersion,
         scalafmtOnCompile := true
-      )),
+      )
+    ),
     name := "sparkplug",
     libraryDependencies ++= Seq(sparkCore, sparkSql, sparkHive, scalaTest)
   )

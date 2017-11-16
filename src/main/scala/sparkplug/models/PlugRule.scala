@@ -13,41 +13,29 @@ case class PlugAction(key: String, value: String) {
 
 case class PlugActionConverted(key: String, value: Any)
 
-case class PlugRule(name: String,
-                    version: String,
-                    condition: String,
-                    actions: Seq[PlugAction]) {
+case class PlugRule(name: String, version: String, condition: String, actions: Seq[PlugAction]) {
 
   lazy val fieldNames =
     actions.map(x => s""""${x.key}"""").mkString("array(", ",", ")")
 
-  private val defaultValidation
-    : ((Seq[PlugAction], StructType)) => List[PlugRuleValidationError] = _ =>
-    List.empty
+  private val defaultValidation: ((Seq[PlugAction], StructType)) => List[PlugRuleValidationError] = _ => List.empty
 
-  private val actionsNotEmpty
-    : PartialFunction[(Seq[PlugAction], StructType),
-                      List[PlugRuleValidationError]] = {
+  private val actionsNotEmpty: PartialFunction[(Seq[PlugAction], StructType), List[PlugRuleValidationError]] = {
     case (as, _) if as.isEmpty =>
-      List(
-        validationError("At the least one action must be specified per rule."))
+      List(validationError("At the least one action must be specified per rule."))
   }
 
   private val actionFieldsPresentInSchema
-    : PartialFunction[(Seq[PlugAction], StructType),
-                      List[PlugRuleValidationError]] = {
+    : PartialFunction[(Seq[PlugAction], StructType), List[PlugRuleValidationError]] = {
     case (as, schema) =>
       val fields = buildFieldsMap(schema).toMap
 
       as.flatMap((action: PlugAction) => {
           fields.get(action.key) match {
             case None =>
-              Some(
-                validationError(
-                  s"""Field "${action.key}" not found in the schema."""))
+              Some(validationError(s"""Field "${action.key}" not found in the schema."""))
             case Some(x) if convertActionValueTo(action.value, x).isFailure =>
-              Some(validationError(
-                s"""Value "${action.value}" cannot be assigned to field ${action.key}."""))
+              Some(validationError(s"""Value "${action.value}" cannot be assigned to field ${action.key}."""))
             case _ =>
               None
           }
@@ -55,19 +43,17 @@ case class PlugRule(name: String,
         .toList
   }
 
-  def validate(schema: StructType): List[PlugRuleValidationError] = {
-    List(actionsNotEmpty, actionFieldsPresentInSchema).flatMap(
-      _.applyOrElse((actions, schema), defaultValidation))
-  }
+  def validate(schema: StructType): List[PlugRuleValidationError] =
+    List(actionsNotEmpty, actionFieldsPresentInSchema).flatMap(_.applyOrElse((actions, schema), defaultValidation))
 
   def asSql(schema: StructType, plugDetailsColumn: Option[String]) = {
     val notEqualsBuilder = new ListBuffer[String]
-    val builder = new StringBuilder
+    val builder          = new StringBuilder
 
     val convertedActions = convertActions(schema)
     convertedActions.zipWithIndex.foldLeft(builder) {
       case (b, (action, i)) =>
-        val actionKey = action.key
+        val actionKey   = action.key
         val actionValue = action.value
         notEqualsBuilder.append(s"not($actionKey <=> $actionValue)")
         val builderWithField = updateField(schema, b, actionKey, actionValue)
@@ -82,15 +68,15 @@ case class PlugRule(name: String,
       val notEqualCondition = s"(${notEqualsBuilder.mkString(" or ")})"
       builder.append(
         s""", if($condition and $notEqualCondition, addPlugDetail(${plugDetailsColumn.get}, "$name", "$version", $fieldNames), ${plugDetailsColumn.get}) as ${updatedPlugDetailsColumn(
-          plugDetailsColumn.get)}""")
+          plugDetailsColumn.get
+        )}"""
+      )
     }
 
     builder.mkString
   }
 
-  def withColumnsRenamed(dataset: Dataset[Row],
-                         plugDetailsColumn: Option[String],
-                         isKeepOldField: Boolean) = {
+  def withColumnsRenamed(dataset: Dataset[Row], plugDetailsColumn: Option[String], isKeepOldField: Boolean) = {
     val pluggedDf = actions
       .foldLeft(dataset)((overridden, action) => {
         val modified = overridden
@@ -113,10 +99,7 @@ case class PlugRule(name: String,
   private def updatedPlugDetailsColumn(plugDetailsColumn: String) =
     s"${plugDetailsColumn}_updated"
 
-  private def updateField(schema: StructType,
-                          builder: mutable.StringBuilder,
-                          actionKey: String,
-                          actionValue: Any) = {
+  private def updateField(schema: StructType, builder: mutable.StringBuilder, actionKey: String, actionValue: Any) =
     actionKey match {
       case x if x.contains('.') =>
         val Array(parent, child) = x.split('.')
@@ -137,46 +120,35 @@ case class PlugRule(name: String,
         builder.append(namedStruct)
         builder.append(s")) as ${newKey(parent)}")
       case _ =>
-        builder.append(
-          s"if($condition, $actionValue, $actionKey) as ${newKey(actionKey)}")
+        builder.append(s"if($condition, $actionValue, $actionKey) as ${newKey(actionKey)}")
     }
-  }
 
   private def convertActions(schema: StructType) = {
     val fields = buildFieldsMap(schema).toMap
     actions
-      .map(
-        x =>
-          PlugActionConverted(
-            x.key,
-            convertActionValueTo(x.value, fields(x.key)).getOrElse(null)))
+      .map(x => PlugActionConverted(x.key, convertActionValueTo(x.value, fields(x.key)).getOrElse(null)))
   }
 
-  private def convertActionValueTo(actionValue: String, dataType: DataType) = {
+  private def convertActionValueTo(actionValue: String, dataType: DataType) =
     if (actionValue.contains('`')) {
       Success(actionValue.replace("`", ""))
     } else {
       Try(dataType match {
         case IntegerType => actionValue.toInt
-        case DoubleType => s"cast(${actionValue.toDouble} as double)"
-        case StringType => s""""${actionValue.toString}""""
+        case DoubleType  => s"cast(${actionValue.toDouble} as double)"
+        case StringType  => s""""${actionValue.toString}""""
       })
     }
-  }
 
   private def validationError(message: String) =
     PlugRuleValidationError(name, message)
 
-  private def buildFieldsMap(schema: StructType,
-                             prefix: String = ""): Seq[(String, DataType)] = {
+  private def buildFieldsMap(schema: StructType, prefix: String = ""): Seq[(String, DataType)] =
     schema.fields.flatMap {
       case f if f.dataType.isInstanceOf[StructType] =>
-        (s"$prefix${f.name}", f.dataType) +: buildFieldsMap(
-          f.dataType.asInstanceOf[StructType],
-          s"$prefix${f.name}.")
+        (s"$prefix${f.name}", f.dataType) +: buildFieldsMap(f.dataType.asInstanceOf[StructType], s"$prefix${f.name}.")
       case f => Seq((s"$prefix${f.name}", f.dataType))
     }
-  }
 
   private def oldKey(actionKey: String) = s"${actionKey}_${name}_old"
 
