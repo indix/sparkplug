@@ -51,8 +51,8 @@ lazy val sparkplug = (project in file("."))
     inThisBuild(
       List(
         organization := "com.indix",
-        scalaVersion := "2.11.11",
-        crossScalaVersions := Seq("2.11.11"),
+        scalaVersion := "2.12.11",
+        crossScalaVersions := Seq("2.12.11"),
         version := libVersion,
         scalafmtOnCompile := true
       )
