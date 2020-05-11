@@ -1,6 +1,6 @@
 language: scala
 scala:
-- 2.11.11
+- 2.11.12
 jdk:
 - openjdk11
 sudo: false
@@ -20,8 +20,8 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    jdk: oraclejdk8
-    scala: 2.11.11
+    jdk: openjdk11
+    scala: 2.11.12
 env:
   global:
   - BUILD_LABEL=1.0.${TRAVIS_BUILD_NUMBER}
