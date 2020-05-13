@@ -2,7 +2,7 @@ language: scala
 scala:
 - 2.11.11
 jdk:
-- oraclejdk8
+- openjdk8
 sudo: false
 before_cache:
 - find $HOME/.sbt -name "*.lock" | xargs rm
@@ -20,7 +20,7 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    jdk: oraclejdk8
+    jdk: openjdk8
     scala: 2.11.11
 env:
   global:
