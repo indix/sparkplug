@@ -58,6 +58,12 @@ lazy val sparkplug = (project in file("."))
       )
     ),
     name := "sparkplug",
-    libraryDependencies ++= Seq(sparkCore, sparkSql, sparkHive, scalaTest)
+    libraryDependencies ++= Seq(
+      sparkCore,
+      sparkSql,
+      sparkHive,
+      scalaTest,
+      "org.apache.derby" % "derby" % "10.15.2.0" % Test
+    )
   )
   .settings(publishSettings: _*)
