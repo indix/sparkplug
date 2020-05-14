@@ -98,9 +98,9 @@ trait SpecAccumulatorsSparkListener extends ScalaFutures {
 }
 
 class SparkPlugSpec
-  extends FlatSpec
-  with Matchers
-  with SpecAccumulatorsSparkListener {
+    extends FlatSpec
+    with Matchers
+    with SpecAccumulatorsSparkListener {
 
   // Ref - https://issues.apache.org/jira/browse/SPARK-22918
   System.setSecurityManager(null)
