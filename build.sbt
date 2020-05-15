@@ -53,7 +53,7 @@ lazy val sparkplug = (project in file("."))
       List(
         organization := "com.indix",
         scalaVersion := "2.12.11",
-        crossScalaVersions := Seq("2.12.11"),
+        crossScalaVersions := Seq("2.12.11", "2.11.11"),
         version := libVersion,
         scalafmtOnCompile := true,
         (Test / parallelExecution) := false
