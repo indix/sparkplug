@@ -101,6 +101,10 @@ class SparkPlugSpec
     extends FlatSpec
     with Matchers
     with SpecAccumulatorsSparkListener {
+
+  // Ref - https://issues.apache.org/jira/browse/SPARK-22918
+  System.setSecurityManager(null)
+
   implicit val spark: SparkSession = SparkSession.builder
     .config(new SparkConf())
     .enableHiveSupport()

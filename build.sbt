@@ -1,4 +1,5 @@
 import Dependencies._
+import sbt._
 
 val libVersion = sys.env.get("TRAVIS_TAG") orElse sys.env.get("BUILD_LABEL") getOrElse s"1.0.0-${System.currentTimeMillis / 1000}-SNAPSHOT"
 
@@ -51,13 +52,19 @@ lazy val sparkplug = (project in file("."))
     inThisBuild(
       List(
         organization := "com.indix",
-        scalaVersion := "2.11.11",
-        crossScalaVersions := Seq("2.11.11"),
+        scalaVersion := "2.12.11",
+        crossScalaVersions := Seq("2.12.11"),
         version := libVersion,
-        scalafmtOnCompile := true
+        scalafmtOnCompile := true,
+        (Test / parallelExecution) := false
       )
     ),
     name := "sparkplug",
-    libraryDependencies ++= Seq(sparkCore, sparkSql, sparkHive, scalaTest)
+    libraryDependencies ++= Seq(
+      sparkCore,
+      sparkSql,
+      sparkHive,
+      scalaTest
+    )
   )
   .settings(publishSettings: _*)
