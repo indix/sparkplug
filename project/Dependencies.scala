@@ -1,7 +1,7 @@
 import sbt._
 
 object Versions {
-  val sparkVersion = "2.4.0"
+  val sparkVersion = "2.4.5"
 }
 
 object Dependencies {
